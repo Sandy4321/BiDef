@@ -13,8 +13,12 @@
 # simple GBs -- all with strains and random flucts
 # partial and full dislocations in fcc and bcc 
 
-#CHANGES FOR WHEN NYC COMES BACK -- NEED TO DO PCA FOR EACH INDIVIDUAL SIMULATION -- SO ALL ARE ID'D AS BULK CORRECTLY
-# ALSO WE NEED GRAIN BOUNDARIES AND STACKING FAULTS THEN WE DONE....
+
+
+# SATURDAY 9/12 -- FIX BCC PROTOTYPE SPACING BETWEEN PLANES, THE PARTIAL FCC SAMPLE GIVES THE ENTIRE UPPER HALF OF THE CYRSTAL AS A DEFECT (LOOK MORE INTO THIS), AND THE ENTIRE MIDDLE OF THE FCC FULL SAMPLE GIVES A PARTIAL DISLOCATION, SIMILAR TO THE ISSUE IN THE PARTIAL DISLOCATION SIMULATION.
+
+#START BY LOOKING AT WHAT THE TRAINING SET IS CLASSIFYING THE ITEMS AS.
+
 
 import pandas as pd
 from itertools import cycle
@@ -48,7 +52,7 @@ class simulation_env:
 	 self.structs=['fcc','bcc'] #structures considered
 	 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
 	 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
-	 self.defect_names=['fccpartial.lmp','fccfull.lmp','bccdisloc.lmp']
+	 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
 
 se=simulation_env()
 
@@ -70,6 +74,16 @@ def dump_stats(alld):
 		pickle.dump(m, open( "./data_stats/"+str(x)+"_m.p", "wb"))
 		pickle.dump(s, open( "./data_stats/"+str(x)+"_s.p", "wb"))
 	pass
+
+# pull away the surface atoms to look at an interior defect when only periodic in z
+def remove_surface_atoms (df):
+	ind=df[df['x'].max()-df['x']>5].index.values
+	ind=np.intersect1d(ind,df[df['x']-df['x'].min()>5].index.values)
+	ind=np.intersect1d(ind,df[df['y'].max()-df['y']>5].index.values)
+	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>5].index.values)
+	#ind=np.intersect1d(ind,df[df['z'].max()-df['z']>5].index.values)
+	#ind=np.intersect1d(ind,df[df['z']-df['z'].min()>5].index.values)
+	return ind
 
 #All we need to give are iterators and post boxes
 
@@ -97,6 +111,8 @@ else:
 newdf=pd.DataFrame(newv)
 # now we need to indentify the 2 catagories of atoms in each "set" so we group by desc
 KM=KMeans(n_clusters=2)
+# we need one with 3 for the dislocation samples
+KM_disloc=KMeans(n_clusters=3)
 # shift the lists to a hashable object 
 alld.index=range(len(alld))
 alld[alld.columns[-1]]=alld[alld.columns[-1]].astype(str)
@@ -115,9 +131,24 @@ bind={0:'def ',1:'bulk '}
 for k in g:
 	# We need to do KM on each indiviual sim instead of the whole set at once!!!
 	look=newdf.ix[g[k]]
-	atom_cats=KM.fit_predict(look.values)
-	
-	binned=np.bincount(atom_cats).argsort()
+	# if we're looking at a dislocation...
+	if sum([k.find(n)!=-1 for n in se.defect_names]):
+		#then we need to pull off the surface atoms, and evaluate only the inner atoms
+		atom_cats=pd.DataFrame(np.zeros(len(look))-1) #negative ones for the surface atoms (they need to be set to the bulk value)
+		atom_cats.index=look.index
+		nonsurf=remove_surface_atoms(alld.ix[g[k]]) # get all of the atoms NOT on a surface
+		atom_cats.ix[nonsurf,0]=KM_disloc.fit_predict(look.ix[nonsurf].values)
+		#binned simply needs to set each atom cats value to a 0 or a 1 for defect or bulk
+		sbin=np.bincount(np.int64(atom_cats.ix[nonsurf][0].values)).argsort() # so least to most popular cats in order
+		# we need to make the 2 less popular bins into 1 value
+		atom_cats[0][atom_cats[0]==sbin[1]]=sbin[0]
+		# we'll make the rest of the atoms the most popular one
+		atom_cats[0][atom_cats[0]==-1]=sbin[2]
+		binned=np.bincount(np.int64(atom_cats[0].values/atom_cats[0].max())).argsort()
+		atom_cats=np.int64(atom_cats[0].values/atom_cats[0].max())
+	else:
+		atom_cats=KM.fit_predict(look.values)	
+		binned=np.bincount(atom_cats).argsort()
 	
 	for x,c in zip(atom_cats,range(len(atom_cats))):	
 		

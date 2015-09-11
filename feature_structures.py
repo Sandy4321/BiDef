@@ -21,7 +21,7 @@ def adjust_temp(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
 
 def adjust_temp_read(lat,output,datname):
 
-	return 'units metal\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.05 0.05 0.05 '+str(random.randint(10,1000))+'\n'+\
+	return 'units metal\nboundary s s p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.05 0.05 0.05 '+str(random.randint(10,1000))+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
 
 
@@ -192,7 +192,7 @@ def partial_dislocations(se,alld,descriptors):
 
 						with open('temp.in', 'w') as f:
 							f.write(template)
-							f.write('\nchange_box all '+b+' boundary '+'p p p'+' remap units box\n')
+							#f.write('\nchange_box all '+b+' boundary '+'p p p'+' remap units box\n')
 							f.write('\nrun 0 post no\n')
 
 						lmp=lammps()

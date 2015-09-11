@@ -1,5 +1,5 @@
 #this script identifies the entries coming from a lammps dump -- any lammps dump using the specified trained ML classifier
-#OK well this works good enough for a prototype with just surfaces... does it work for vacancies???!
+
 
 
 import pickle
@@ -10,12 +10,22 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.externals import joblib
 from sklearn.cluster import KMeans
 from sklearn import svm
+import numpy as np
 
 def norm (s, m) : return lambda x : (x - m) / s
 
-KM=KMeans(n_clusters=2)
 
-def nab_and_format_bispec(fn):
+def remove_surface_atoms (df):
+	ind=df[df['x'].max()-df['x']>5].index.values
+	ind=np.intersect1d(ind,df[df['x']-df['x'].min()>5].index.values)
+	ind=np.intersect1d(ind,df[df['y'].max()-df['y']>5].index.values)
+	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>5].index.values)
+	#ind=np.intersect1d(ind,df[df['z'].max()-df['z']>5].index.values)
+	#ind=np.intersect1d(ind,df[df['z']-df['z'].min()>5].index.values)
+	return ind
+
+
+def nab_and_format_bispec(fn,get_cats=False):
 	df=pd.read_csv(fn,skiprows=8,delim_whitespace=True,low_memory=False)
 	# get rid of the bogus first columns
 	cols=df.columns[2::]
@@ -38,9 +48,13 @@ def nab_and_format_bispec(fn):
 	print "\nloading in PCA..."
 	pca=pickle.load(open("pca.p","rb"))
 	trans_values=pca.transform(tdata[tdata.columns[5::]].values)
-
-
-	#atom_cats=KM.fit_predict(trans_values)
+	if get_cats==True:
+		KM=KMeans(n_clusters=3)
+		print "\n Separating into " + str(KM.get_params()['n_clusters']) +" parts, and removing surface atoms."
+		nonsurf=remove_surface_atoms(df)
+		atom_cats=np.zeros(len(trans_values))
+		atom_cats[nonsurf]=KM.fit_predict(trans_values[nonsurf])
+		return df,atom_cats
 	#make_output(fn,df,atom_cats)
 
 	print "\n loading in classifier..."
@@ -81,6 +95,8 @@ def make_output(fn,df,out):
 			f.write('\n')
 	pass
 
-dat,output,trans,tdata,probs=nab_and_format_bispec("example_fcc")
+if __name__ == "__main__":
 
-make_output("example_fcc",dat,output)
+	dat,output,trans,tdata,probs=nab_and_format_bispec("dislocationfccfull.lmp8399")
+	make_output("dislocationfccfull.lmp8399",dat,output)
+
