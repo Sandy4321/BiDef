@@ -15,9 +15,8 @@
 
 
 
-# SATURDAY 9/12 -- FIX BCC PROTOTYPE SPACING BETWEEN PLANES, THE PARTIAL FCC SAMPLE GIVES THE ENTIRE UPPER HALF OF THE CYRSTAL AS A DEFECT (LOOK MORE INTO THIS), AND THE ENTIRE MIDDLE OF THE FCC FULL SAMPLE GIVES A PARTIAL DISLOCATION, SIMILAR TO THE ISSUE IN THE PARTIAL DISLOCATION SIMULATION.
-
-#START BY LOOKING AT WHAT THE TRAINING SET IS CLASSIFYING THE ITEMS AS.
+# SATURDAY 9/12 -- changing such that ovito will ID the CNA HCP atoms for the partials to eliminate the abmiguity caused by the Kmeans identifier, the BCC will use the same system--
+# TO do this we'll take the non surface others as well as the HCP atoms.
 
 
 import pandas as pd
@@ -30,7 +29,7 @@ from sklearn.decomposition import PCA
 from sklearn import svm
 from feature_structures import *
 
-load_from_prev=False
+load_from_prev=True
 
 #grain boundaries -- for a spectrum of separation angles, we'll do a separate regression to find the grain-boundary angle after identifying the struct as a GB
 
@@ -42,7 +41,7 @@ def norm (s, m) : return lambda x : (x - m) / s
 
 class simulation_env:
      def __init__(self):
-         self.sampling_rate = 0.01#how often we select for keeps
+         self.sampling_rate = 0.05#how often we select for keeps
          self.num_comp = 5#number of PCA components that the bi components are reduced to
 	 self.sample_size=100000#size of samples when machine learning
 	 self.thermal=10 #number of thermal perturbations for each config.
@@ -53,6 +52,7 @@ class simulation_env:
 	 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
 	 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
 	 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
+	 self.flocs=['fccfull_temp.structures','BCC_temp.structures','temp.structures'] #dislocation prototype file structural analysis files
 
 se=simulation_env()
 
@@ -83,6 +83,15 @@ def remove_surface_atoms (df):
 	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>5].index.values)
 	#ind=np.intersect1d(ind,df[df['z'].max()-df['z']>5].index.values)
 	#ind=np.intersect1d(ind,df[df['z']-df['z'].min()>5].index.values)
+	return ind
+
+def remove_surface_atoms_wZ (df):
+	ind=df[df['x'].max()-df['x']>5].index.values
+	ind=np.intersect1d(ind,df[df['x']-df['x'].min()>5].index.values)
+	ind=np.intersect1d(ind,df[df['y'].max()-df['y']>5].index.values)
+	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>5].index.values)
+	ind=np.intersect1d(ind,df[df['z'].max()-df['z']>3].index.values)
+	ind=np.intersect1d(ind,df[df['z']-df['z'].min()>3].index.values)
 	return ind
 
 #All we need to give are iterators and post boxes
@@ -130,44 +139,34 @@ final=[]
 bind={0:'def ',1:'bulk '}
 for k in g:
 	# We need to do KM on each indiviual sim instead of the whole set at once!!!
-	look=newdf.ix[g[k]]
-	# if we're looking at a dislocation...
-	if sum([k.find(n)!=-1 for n in se.defect_names]):
-		#then we need to pull off the surface atoms, and evaluate only the inner atoms
-		atom_cats=pd.DataFrame(np.zeros(len(look))-1) #negative ones for the surface atoms (they need to be set to the bulk value)
-		atom_cats.index=look.index
-		nonsurf=remove_surface_atoms(alld.ix[g[k]]) # get all of the atoms NOT on a surface
-		atom_cats.ix[nonsurf,0]=KM_disloc.fit_predict(look.ix[nonsurf].values)
-		#binned simply needs to set each atom cats value to a 0 or a 1 for defect or bulk
-		sbin=np.bincount(np.int64(atom_cats.ix[nonsurf][0].values)).argsort() # so least to most popular cats in order
-		# we need to make the 2 less popular bins into 1 value
-		atom_cats[0][atom_cats[0]==sbin[1]]=sbin[0]
-		# we'll make the rest of the atoms the most popular one
-		atom_cats[0][atom_cats[0]==-1]=sbin[2]
-		binned=np.bincount(np.int64(atom_cats[0].values/atom_cats[0].max())).argsort()
-		atom_cats=np.int64(atom_cats[0].values/atom_cats[0].max())
+	if k.find('def') != -1 or k.find('bulk') != -1 or k.find('Drop')!=-1:
+		for x,c in zip(atom_cats,range(len(g[k]))):
+		#FIX HERE SET UP THE CORRECT ASSIGNMENT!!!!!!!!!!	
+			final.append([g[k][c],alld[alld.columns[-1]][]])
 	else:
+		look=newdf.ix[g[k]]
+
 		atom_cats=KM.fit_predict(look.values)	
 		binned=np.bincount(atom_cats).argsort()
 	
-	for x,c in zip(atom_cats,range(len(atom_cats))):	
+		for x,c in zip(atom_cats,range(len(atom_cats))):	
 		
-		label=bind[binned[x]]
+			label=bind[binned[x]]
 			
-		if label=='bulk ' and k.find('fcc')!=-1:
-			label=label+' fcc'
-		elif label=='bulk ' and k.find('bcc')!=-1:
-			label=label+' bcc'
-		elif k.find('octahedral')!=-1:
-			label=label+' '+'octahedral'
-		elif k.find('tetrahedral')!=-1:
-			label=label+' '+'tetrahedral'
-		elif k.find('vacancy')!=-1:
-			label=label+' '+'vacancy'	
-		else:
-			label=label+' '+k
-		#alld['finalclass'].ix[g[k][c]]=label 
-		final.append([g[k][c],label])
+			if label=='bulk ' and k.find('fcc')!=-1:
+				label=label+' fcc'
+			elif label=='bulk ' and k.find('bcc')!=-1:
+				label=label+' bcc'
+			elif k.find('octahedral')!=-1:
+				label=label+' '+'octahedral'
+			elif k.find('tetrahedral')!=-1:
+				label=label+' '+'tetrahedral'
+			elif k.find('vacancy')!=-1:
+				label=label+' '+'vacancy'	
+			else:
+				label=label+' '+k
+			#alld['finalclass'].ix[g[k][c]]=label 
+			final.append([g[k][c],label])
 
 #now we make a dictionary of classifiers
 

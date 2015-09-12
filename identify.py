@@ -25,6 +25,16 @@ def remove_surface_atoms (df):
 	return ind
 
 
+def remove_surface_atoms_wZ (df):
+	ind=df[df['x'].max()-df['x']>5].index.values
+	ind=np.intersect1d(ind,df[df['x']-df['x'].min()>5].index.values)
+	ind=np.intersect1d(ind,df[df['y'].max()-df['y']>5].index.values)
+	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>5].index.values)
+	ind=np.intersect1d(ind,df[df['z'].max()-df['z']>3].index.values)
+	ind=np.intersect1d(ind,df[df['z']-df['z'].min()>3].index.values)
+	return ind
+
+
 def nab_and_format_bispec(fn,get_cats=False):
 	df=pd.read_csv(fn,skiprows=8,delim_whitespace=True,low_memory=False)
 	# get rid of the bogus first columns
@@ -49,7 +59,7 @@ def nab_and_format_bispec(fn,get_cats=False):
 	pca=pickle.load(open("pca.p","rb"))
 	trans_values=pca.transform(tdata[tdata.columns[5::]].values)
 	if get_cats==True:
-		KM=KMeans(n_clusters=3)
+		KM=KMeans(n_clusters=2)
 		print "\n Separating into " + str(KM.get_params()['n_clusters']) +" parts, and removing surface atoms."
 		nonsurf=remove_surface_atoms(df)
 		atom_cats=np.zeros(len(trans_values))
@@ -97,6 +107,7 @@ def make_output(fn,df,out):
 
 if __name__ == "__main__":
 
-	dat,output,trans,tdata,probs=nab_and_format_bispec("dislocationfccfull.lmp8399")
-	make_output("dislocationfccfull.lmp8399",dat,output)
+	dat,output,trans,tdata,probs=nab_and_format_bispec("dislocationbcc_disloc.lmp6538")
+	#dat,output=nab_and_format_bispec("dislocationbcc_disloc.lmp6538",get_cats=True)	
+	make_output("dislocationbcc_disloc.lmp6538",dat,output)
 

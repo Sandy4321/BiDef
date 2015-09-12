@@ -208,6 +208,31 @@ def partial_dislocations(se,alld,descriptors):
 						descriptors.append([d+'disloc ',len(temp)])
 	return alld, descriptors
 
+#assign the descriptors for each of the dislocation structures (no Kmeans necessary)
+def initialize_dislocation_descriptors(flocs):
+	tout=[]
+	for f in flocs:
+		tdf=pd.read_csv(f,delim_whitespace=True)
+		tdf['desc']='Please Drop'
+		if f==flocs[0] or f==flocs[1]:
+			#filter out the surface atoms
+			t1=tdf[tdf['X']<tdf['X'].max()-3.]
+			t1=t1[t1['X']>t1['X'].min()+3.]
+			t1=t1[t1['Y']<t1['Y'].max()-3.]
+			t1=t1[t1['Y']>t1['Y'].min()+3.]
+			if f==flocs[0]:
+				t1.ix[t1[t1['TYPE']>0.5].index,'desc']='def_fccfulldisloc'
+				t1.ix[t1[t1['TYPE']<=0.5].index,'desc']='bulk  fcc'
+				tdf.ix[t1.index,'desc']=t1['desc']
+			else:
+				t1.ix[t1[t1['TYPE']!=3].index,'desc']='def_bccfulldisloc'
+				t1.ix[t1[t1['TYPE']==3].index,'desc']='bulk  bcc'
+				tdf.ix[t1.index,'desc']=t1['desc']
+		else:
+			tdf.ix[tdf[tdf['TYPE']!=1].index,'desc']='def_fccpartialdisloc'
+			tdf.ix[tdf[tdf['TYPE']==1].index,'desc']='bulk  fcc'
+	tout.append(tdf['desc'].values)
+	return tout
 
 
 def make_all_structures(se):
@@ -220,11 +245,24 @@ def make_all_structures(se):
 	#alld,desctriptors=vacancies(se,alld,descriptors)
 	#alld,desctriptors=intersitials(se,alld,descriptors)
 	alld,descriptors=partial_dislocations(se,alld,descriptors)
+
+	proto=initialize_dislocation_descriptors(se.flocs)
 	#reorganize the descriptors
 	d2=[]
 	for d in descriptors:
-		for t in range(d[1]):
-			d2.append(d)
+		if d.find('disloc')!=-1:
+			if d.find('partial')!=-1:
+				for t in range(d[1]):
+					d2.append(proto[2][t])
+			elif d.find('fcc')!=-1:
+				for t in range(d[1]):
+					d2.append(proto[0][t])
+			else:
+				for t in range(d[1]):
+					d2.append(proto[1][t])
+		else:
+			for t in range(d[1]):
+				d2.append(d)
 	
 	alld['desc'] = [d[0] for d in d2]
 	
