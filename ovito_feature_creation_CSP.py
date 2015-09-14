@@ -15,12 +15,13 @@ for file in sys.argv[1:]:
         csp = CentroSymmetryModifier()
         node.modifiers.append(csp)
     else:
+        continue	
         # To load subsequent files, call the load() function of the FileSource.
-        node.source.load(file)
-
-    # Evaluate pipeline and wait until the analysis results are available.
+        #node.source.load(file)
+	
+# Evaluate pipeline and wait until the analysis results are available.
 c=[]
-fout=open('fccfull_temp.structures','w')
+fout=open(sys.argv[2:][0],'w')
 fout.write('PID TYPE X Y Z\n')
 for frame in range(0, ovito.dataset.anim.last_frame + 1):
     ovito.dataset.anim.current_frame = frame    # Jump to the animation frame.

@@ -15,9 +15,7 @@
 
 
 
-# SATURDAY 9/12 -- changing such that ovito will ID the CNA HCP atoms for the partials to eliminate the abmiguity caused by the Kmeans identifier, the BCC will use the same system--
-# TO do this we'll take the non surface others as well as the HCP atoms.
-
+# 9/14 : LOOK AT PLOTS OF THE EIGENVALUE IMPORTANCES FOR EACH PCA TO SEE HOW THE PCA IMPORTANCE DECREASES.
 
 import pandas as pd
 from itertools import cycle
@@ -29,7 +27,7 @@ from sklearn.decomposition import PCA
 from sklearn import svm
 from feature_structures import *
 
-load_from_prev=True
+load_from_prev=False
 
 #grain boundaries -- for a spectrum of separation angles, we'll do a separate regression to find the grain-boundary angle after identifying the struct as a GB
 
@@ -53,6 +51,11 @@ class simulation_env:
 	 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
 	 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
 	 self.flocs=['fccfull_temp.structures','BCC_temp.structures','temp.structures'] #dislocation prototype file structural analysis files
+	
+	
+#f has the each of the files to consider, tdict relates the file name to the defect name
+	#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot
+	# is the description and the [1] spot is the value needed
 
 se=simulation_env()
 
@@ -135,7 +138,9 @@ g=alld.groupby(alld.columns[-1]).groups
 
 # loop over all of the combos of strain and surface orientation
 final=[]
-#
+# this part is a mess, we have it assign the proper label to each set of PCA vectors.
+# the labels from KNN nead to be separated into bulk and non-bulk, the other labels should already be separated
+# lets make this depricated, and just use CSP/CNA for all types of defects!!
 bind={0:'def ',1:'bulk '}
 for k in g:
 	# We need to do KM on each indiviual sim instead of the whole set at once!!!

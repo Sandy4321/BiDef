@@ -16,11 +16,11 @@ for file in sys.argv[1:]:
         node.modifiers.append(cna)
     else:
         # To load subsequent files, call the load() function of the FileSource.
-        node.source.load(file)
+        continue
 
     # Evaluate pipeline and wait until the analysis results are available.
 c=[]
-fout=open('BCC_temp.structures','w')
+fout=open(sys.argv[2:][0],'w')
 fout.write('PID TYPE X Y Z\n')
 for frame in range(0, ovito.dataset.anim.last_frame + 1):
     ovito.dataset.anim.current_frame = frame    # Jump to the animation frame.
