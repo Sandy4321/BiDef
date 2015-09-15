@@ -154,7 +154,7 @@ def make_vacancy_prototypes(se,alld,dic):
 	DOUT={}
 	
 	dcheck={se.structs[0]:False,se.structs[1]:False}
-	tdict={se.structs[0]:'fcc_vacancy',se.structs[0]:'bcc_vacancy'}
+	tdict={se.structs[0]:'fcc_vacancy',se.structs[1]:'bcc_vacancy'}
 	counter=0
 	i = se.indicies[1] #standard cell
 	for stru in se.structs:
@@ -171,7 +171,6 @@ def make_vacancy_prototypes(se,alld,dic):
 						f.write(template)
 						f.write('\n group g1 id 1')
 						f.write('\n delete_atoms group g1')
-						f.write('\nchange_box all '+b+' boundary '+'p p p'+' remap units box\n')
 						f.write('\nrun 0 post no\n')
 				lmp=lammps()
 				try:							
@@ -267,8 +266,7 @@ def make_interstitial_prototypes(se,alld,dic):
 
 			with open('temp.in', 'w') as f:
 				f.write(template)
-				f.write('\ncreate_atoms 1 single '+str(se.inter[0])+' '+str(se.inter[1])+' '+str(se.inter[2]))
-				f.write('\nchange_box all '+b+' boundary '+'p p p'+' remap units box\n')
+				f.write('\ncreate_atoms 1 single '+str(inter[0])+' '+str(inter[1])+' '+str(inter[2]))
 				f.write('\nrun 0 post no\n')
 			lmp=lammps()
 			try:							
@@ -284,9 +282,9 @@ def make_interstitial_prototypes(se,alld,dic):
 				lil_cond={fiz+'CNAOUT':['CNA',1]}
 			elif stru=='bcc':
 				lil_cond={fiz+'CNAOUT':['CNA',3]}
-			DOUT[stru]=initialize_dislocation_descriptors(fiz+'CNAOUT',lil_d,lil_cond)
+			DOUT[(stru,ot[c])]=initialize_dislocation_descriptors(fiz+'CNAOUT',lil_d,lil_cond)
 			#reset the index to the atomic IDs for the merge with the bispec data
-			DOUT[stru].index=DOUT[stru]['PID']
+			DOUT[(stru,ot[c])].index=DOUT[(stru,ot[c])]['PID']
 			c+=1
 					#need_proto=False
 	print "\n\n\n			FINISHED INTERSTITIAL PROTOTYPES		\n\n\n"
@@ -317,7 +315,7 @@ def interstitials(se,alld,descriptors,DOUT):
 
 						with open('temp.in', 'w') as f:
 							f.write(template)
-							f.write('\ncreate_atoms 1 single '+str(se.inter[0])+' '+str(se.inter[1])+' '+str(se.inter[2]))
+							f.write('\ncreate_atoms 1 single '+str(inter[0])+' '+str(inter[1])+' '+str(inter[2]))
 							f.write('\nchange_box all '+b+' boundary '+'p p p'+' remap units box\n')
 							f.write('\nrun 0 post no\n')
 
@@ -339,8 +337,32 @@ def interstitials(se,alld,descriptors,DOUT):
 
 	return alld
 
+def make_dislocations_prototypes(se):
+	#OK what types of defects, FCC full, partial, BCC full... strain and thermalize
+	DOUT={}
+	tdict={se.defect_names[0]:'fcc_full_disloc',\
+		   se.defect_names[1]:'bcc_full_disloc',\
+		   se.defect_names[2]:'fcc_partial_disloc'}
+	
+	for d in se.defect_names:
+		lil_d={se.flocs[d]:tdict[d]}
+		if tdict[d].find('fcc')!=-1:
+			if tdict[d].find('full')!=-1:
+				lil_cond={se.flocs[d]:['CSP_surf',1]}
+			else:
+				lil_cond={se.flocs[d]:['CNA',1]}
+		elif tdict[d].find('bcc')!=-1:
+			lil_cond={se.flocs[d]:['CNA_surf',3]}
+
+		DOUT[d]=initialize_dislocation_descriptors(se.flocs[d],lil_d,lil_cond)	
+		DOUT[d].index=DOUT[d]['PID']
+	print "\n\n\n			FINISHED DISLOCATION PROTOTYPES		\n\n\n"
+	return DOUT
+
+
+
 # make system calls to atomsk -- easy way to generate the inital dislocation stuctures, then strain and thermalize them such that they are still identified.
-def partial_dislocations(se,alld,descriptors):
+def dislocations(se,alld,descriptors,DOUT):
 	#OK what types of defects, FCC full, partial, BCC full... strain and thermalize
 	for d in se.defect_names:
 		for s in se.scales:
@@ -364,21 +386,27 @@ def partial_dislocations(se,alld,descriptors):
 
 						with open('temp.in', 'w') as f:
 							f.write(template)
-							#f.write('\nchange_box all '+b+' boundary '+'p p p'+' remap units box\n')
+							f.write('\nchange_box all '+b+' boundary '+'p p p'+' remap units box\n')
 							f.write('\nrun 0 post no\n')
 
 						lmp=lammps()
 						try:						
 							lmp.file('temp.in')
 							temp=nab_bispec_train(fiz)
-							alld=alld.append(temp)
+							#alld=alld.append(temp)
 						except:
 							print "\nFAILURE TO RUN LAMMPS."						
 						lmp.close()
 						# we need the number of atoms, the structure, flag for the type of intersitial
 						print '\n'+d+'dislocation '
-						descriptors.append([d+'disloc ',len(temp)])
-	return alld, descriptors
+						temp.index=temp['id']
+						temp['desc']=DOUT[d]['desc']
+						alld=alld.append(temp)
+	return alld
+
+
+
+
 
 #assign the descriptors for each of the dislocation structures (no Kmeans necessary)
 def initialize_dislocation_descriptors(f,tdict,condit):
@@ -435,32 +463,14 @@ def make_all_structures(se):
 	DOUT=make_vacancy_prototypes(se,alld,dic)
 	alld=vacancies(se,alld,descriptors,DOUT)
 	DOUT=make_interstitial_prototypes(se,alld,dic)
-	alld=intersitials(se,alld,descriptors,DOUT)
+	alld=interstitials(se,alld,descriptors,DOUT)
+	DOUT=make_dislocations_prototypes(se)
+	alld=dislocations(se,alld,descriptors,DOUT)
+	#may not work, may redo above with better organization of alld
+	alld.index = range(len(alld))	
+	alld=alld.dropna()
+	alld=alld[alld['desc']!='Please Drop']
 	
-	#alld,descriptors=partial_dislocations(se,alld,descriptors)
-
-	#proto=initialize_dislocation_descriptors(se.flocs)
-	
-	#reorganize the descriptors
-	'''	
-	d2=[]
-	for d in descriptors:
-		if d.find('disloc')!=-1:
-			if d.find('partial')!=-1:
-				for t in range(d[1]):
-					d2.append(proto[2][t])
-			elif d.find('fcc')!=-1:
-				for t in range(d[1]):
-					d2.append(proto[0][t])
-			else:
-				for t in range(d[1]):
-					d2.append(proto[1][t])
-		else:
-			for t in range(d[1]):
-				d2.append(d)
-	
-	alld['desc'] = [d[0] for d in d2]
-	'''
 	return alld,descriptors,DOUT
 
 class simulation_env:
@@ -476,7 +486,7 @@ class simulation_env:
 	 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
 	 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
 	 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
-	 self.flocs=['fccfull_temp.structures','BCC_temp.structures','temp.structures'] #dislocation prototype file structural analysis files
+	 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[1]:'BCC_temp.structures',self.defect_names[2]:'temp.structures'} #dislocation prototype file structural analysis files
 	
 	
 #f has the each of the files to consider, tdict relates the file name to the defect name

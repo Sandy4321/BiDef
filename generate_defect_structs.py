@@ -27,7 +27,7 @@ from sklearn.decomposition import PCA
 from sklearn import svm
 from feature_structures import *
 
-load_from_prev=False
+load_from_prev=True
 
 #grain boundaries -- for a spectrum of separation angles, we'll do a separate regression to find the grain-boundary angle after identifying the struct as a GB
 
@@ -61,13 +61,14 @@ se=simulation_env()
 
 
 # Use PCA to compress the representation of the bispectrum
-def consolidate_bispec(alld,pca):
+def consolidate_bispec(alld,pca,rclassdict):
 	# standardize the data so the larger magnitude components don't dominate the PCA
 	for x in alld.columns[5:-1]:
 		alld[x] = alld[x].map(norm(alld[x].std(),alld[x].mean()))
 	# get N principal components for the defects!
 	lookPCA= pca.fit(alld[alld.columns[5:-1]].values)
 	trans_values=pca.transform(alld[alld.columns[5:-1]].values)	
+	trans_values=[np.append(t,rclassdict[alld['desc'].values[x]]) for x,t in zip(range(len(alld)),trans_values)]
 	return trans_values,pca
 
 def dump_stats(alld):
@@ -108,7 +109,13 @@ if load_from_prev==False:
 	pca = PCA(n_components=se.num_comp)
 	# dump the stats for each column, so they can be re-mapped in future simulations
 	dump_stats(alld)
-	newv,pca=consolidate_bispec(alld,pca)
+	
+	vals=list(np.unique(alld['desc'].values))
+	keys=range(len(vals))
+	classdict=dict(zip(keys,vals))
+	rclassdict=dict(zip(vals,keys))
+	
+	newv,pca=consolidate_bispec(alld,pca,rclassdict)
 	pickle.dump(newv, open( "newv.p", "wb"))
 	pickle.dump(pca, open( "pca.p", "wb"))
 
@@ -121,61 +128,10 @@ else:
 #turn the transformed bispec components into a df object
 
 newdf=pd.DataFrame(newv)
-# now we need to indentify the 2 catagories of atoms in each "set" so we group by desc
-KM=KMeans(n_clusters=2)
-# we need one with 3 for the dislocation samples
-KM_disloc=KMeans(n_clusters=3)
-# shift the lists to a hashable object 
-alld.index=range(len(alld))
-alld[alld.columns[-1]]=alld[alld.columns[-1]].astype(str)
-# dict of the sorted groups
-g=alld.groupby(alld.columns[-1]).groups
-
-
-#alld['finalclass']=alld[alld.columns[-1]]
-
-# needs to simply sort into bulk and non-bulk atoms for each system
-
-# loop over all of the combos of strain and surface orientation
-final=[]
-# this part is a mess, we have it assign the proper label to each set of PCA vectors.
-# the labels from KNN nead to be separated into bulk and non-bulk, the other labels should already be separated
-# lets make this depricated, and just use CSP/CNA for all types of defects!!
-bind={0:'def ',1:'bulk '}
-for k in g:
-	# We need to do KM on each indiviual sim instead of the whole set at once!!!
-	if k.find('def') != -1 or k.find('bulk') != -1 or k.find('Drop')!=-1:
-		for x,c in zip(atom_cats,range(len(g[k]))):
-		#FIX HERE SET UP THE CORRECT ASSIGNMENT!!!!!!!!!!	
-			final.append([g[k][c],alld[alld.columns[-1]][]])
-	else:
-		look=newdf.ix[g[k]]
-
-		atom_cats=KM.fit_predict(look.values)	
-		binned=np.bincount(atom_cats).argsort()
-	
-		for x,c in zip(atom_cats,range(len(atom_cats))):	
-		
-			label=bind[binned[x]]
-			
-			if label=='bulk ' and k.find('fcc')!=-1:
-				label=label+' fcc'
-			elif label=='bulk ' and k.find('bcc')!=-1:
-				label=label+' bcc'
-			elif k.find('octahedral')!=-1:
-				label=label+' '+'octahedral'
-			elif k.find('tetrahedral')!=-1:
-				label=label+' '+'tetrahedral'
-			elif k.find('vacancy')!=-1:
-				label=label+' '+'vacancy'	
-			else:
-				label=label+' '+k
-			#alld['finalclass'].ix[g[k][c]]=label 
-			final.append([g[k][c],label])
 
 #now we make a dictionary of classifiers
 
-vals=list(np.unique(np.array([f[1] for f in final])))
+vals=list(np.unique(alld['desc'].values))
 keys=range(len(vals))
 
 print '\n There are '+str(len(vals))+' options.'
