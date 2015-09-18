@@ -1,7 +1,4 @@
 #this script identifies the entries coming from a lammps dump -- any lammps dump using the specified trained ML classifier
-
-
-
 import pickle
 import pandas as pd
 from sklearn.externals import joblib
@@ -35,7 +32,16 @@ def remove_surface_atoms_wZ (df):
 	return ind
 
 
-def nab_and_format_bispec(fn,get_cats=False):
+def initialize_classification_env():
+	print "\n loading in classifiers..."
+	classdict=pickle.load(open("classdict.p","rb"))
+	clfdict={}
+	for k in classdict.keys():
+		clfdict[k]=joblib.load('./pickled/'+classdict[k]+'.pkl')
+	return clfdict
+
+
+def nab_and_format_bispec(fn,clfdict,get_cats=False,need_PCA=False):
 	df=pd.read_csv(fn,skiprows=8,delim_whitespace=True,low_memory=False)
 	# get rid of the bogus first columns
 	cols=df.columns[2::]
@@ -50,14 +56,14 @@ def nab_and_format_bispec(fn,get_cats=False):
 		m=pickle.load(open( "./data_stats/"+str(x)+"_m.p", "rb"))
 		s=pickle.load(open( "./data_stats/"+str(x)+"_s.p", "rb"))
 		tdata[x]=tdata[x].map(norm(s,m))
-	
+	if need_PCA==True:
+		# now we transform it using the previously trained PCA
+		print "\nloading in PCA..."
+		pca=pickle.load(open("pca.p","rb"))
+		trans_values=pca.transform(tdata[tdata.columns[5::]].values)
+	else:
+		trans_values=tdata[tdata.columns[5::]].values
 
-
-
-	# now we transform it using the previously trained PCA
-	print "\nloading in PCA..."
-	pca=pickle.load(open("pca.p","rb"))
-	trans_values=pca.transform(tdata[tdata.columns[5::]].values)
 	if get_cats==True:
 		KM=KMeans(n_clusters=2)
 		print "\n Separating into " + str(KM.get_params()['n_clusters']) +" parts, and removing surface atoms."
@@ -66,25 +72,33 @@ def nab_and_format_bispec(fn,get_cats=False):
 		atom_cats[nonsurf]=KM.fit_predict(trans_values[nonsurf])
 		return df,atom_cats
 	#make_output(fn,df,atom_cats)
-
-	print "\n loading in classifier..."
-	clf=joblib.load('./pickled/rf.pkl')
-	print "\n making prediction..."
-	out=clf.predict(trans_values)
-	from scipy import stats
-	mode=stats.mode(out)
-	out2=clf.predict_proba(trans_values)
 	
-	#only identify above 75% certainty, otherwise, go to the mode.
-#	for o,c in zip(out2,range(len(out))):
-#		if out[c] != mode[0] and sum(o>0.75)!=0:	
-#			out[c]=(o>0.75).argmax()
-#		else:
-#			out[c]=mode[0]
-		
-			
-
-	return df,out,trans_values,tdata,out2
+	classdict=pickle.load(open("classdict.p","rb"))
+	
+	print "\n making prediction..."
+	predictions={}
+	values={}
+	for k in classdict.keys():
+		#values[k]=clfdict[k].predict(trans_values)
+		predictions[k]=clfdict[k].predict_proba(trans_values)
+	
+	out=np.zeros(len(trans_values))
+	#need the maximum likelyhood defect (could be bulk if all are small)
+	for x in range(len(trans_values)):
+		poss_def=np.zeros(len(classdict))
+		for k in classdict.keys():
+			if k > 9:
+				p=1
+			else:
+				p=0
+			if predictions[k][x][p] >= 0.75:
+				poss_def[k]=predictions[k][x][p]
+		if sum(poss_def) > 0:
+			out[x]=np.array(poss_def).argmax()
+		else:
+			out[x]=-1		
+ 
+	return df,out,trans_values,tdata,predictions,classdict
 
 
 def make_output(fn,df,out):
@@ -106,8 +120,8 @@ def make_output(fn,df,out):
 	pass
 
 if __name__ == "__main__":
-
-	dat,output,trans,tdata,probs=nab_and_format_bispec("dislocationbcc_disloc.lmp6538")
+	clfdict=initialize_classification_env()
+	dat,output,trans,tdata,preds,cd=nab_and_format_bispec("dislocationfccpartial.lmp8287",clfdict)
 	#dat,output=nab_and_format_bispec("dislocationbcc_disloc.lmp6538",get_cats=True)	
-	make_output("dislocationbcc_disloc.lmp6538",dat,output)
+	make_output("dislocationfccpartial.lmp8287",dat,output)
 

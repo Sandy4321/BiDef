@@ -15,7 +15,10 @@
 
 
 
-# 9/14 : LOOK AT PLOTS OF THE EIGENVALUE IMPORTANCES FOR EACH PCA TO SEE HOW THE PCA IMPORTANCE DECREASES.
+# 9/18: Newest thing to do is to make sure that the generation of the dislocation training set worked properly, it's really the only thing I have left.
+
+#This opens the door for some amazing new techniques, where regions could be identified dynamically that are out of the fitting regime for the potentials being used.
+# these regions of the simulation could be redone with quantum methods or more accurate potentials
 
 import pandas as pd
 from itertools import cycle
@@ -25,7 +28,11 @@ import pickle
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn import svm
+from sklearn import preprocessing
 from feature_structures import *
+from matplotlib import pyplot as plt
+from matplotlib.pyplot import cm 
+from sklearn.externals import joblib
 
 load_from_prev=True
 
@@ -39,19 +46,18 @@ def norm (s, m) : return lambda x : (x - m) / s
 
 class simulation_env:
      def __init__(self):
-         self.sampling_rate = 0.05#how often we select for keeps
-         self.num_comp = 5#number of PCA components that the bi components are reduced to
-	 self.sample_size=100000#size of samples when machine learning
+	 self.sampling_rate = 0.025#how often we select for keeps
+	 self.num_comp = 5#number of PCA components that the bi components are reduced to
+	 self.sample_size=3000#size of samples from each classification when training
 	 self.thermal=10 #number of thermal perturbations for each config.
 	 self.lattice=3.597 #lattice size
-	 self.indicies=[[[1,1,1],[-1,1,0],[-1,-1,2]], [[1,0,0],[0,1,0],[0,0,1]]]#crystal orientations
+	 self.indicies=[[[1,1,1],[-1,1,0],[-1,-1,2]], [[0,1,0],[0,0,1],[1,0,0]]]#crystal orientations
 	 self.interstitial={'fcc':[[0.25,0.25,0.25],[0.5,0.0,0.0]],'bcc':[[0.5,0.25,0.0],[0.5,0.5,0.0]]}# interstitial sites for fcc, bcc (tet then oct)
 	 self.structs=['fcc','bcc'] #structures considered
 	 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
 	 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
 	 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
-	 self.flocs=['fccfull_temp.structures','BCC_temp.structures','temp.structures'] #dislocation prototype file structural analysis files
-	
+	 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[1]:'BCC_temp.structures',self.defect_names[2]:'temp.structures'} #dislocation prototype file structural analysis files
 	
 #f has the each of the files to consider, tdict relates the file name to the defect name
 	#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot
@@ -63,6 +69,7 @@ se=simulation_env()
 # Use PCA to compress the representation of the bispectrum
 def consolidate_bispec(alld,pca,rclassdict):
 	# standardize the data so the larger magnitude components don't dominate the PCA
+	# scaler=preprocessing.StandardScaler().fit()
 	for x in alld.columns[5:-1]:
 		alld[x] = alld[x].map(norm(alld[x].std(),alld[x].mean()))
 	# get N principal components for the defects!
@@ -70,6 +77,21 @@ def consolidate_bispec(alld,pca,rclassdict):
 	trans_values=pca.transform(alld[alld.columns[5:-1]].values)	
 	trans_values=[np.append(t,rclassdict[alld['desc'].values[x]]) for x,t in zip(range(len(alld)),trans_values)]
 	return trans_values,pca
+
+#pca free version, aka all bispectrum coefficients are used
+def consolidate_data(alld,pca,rclassdict):
+	# standardize the data so the larger magnitude components don't dominate the PCA
+	# scaler=preprocessing.StandardScaler().fit()
+	for x in alld.columns[5:-1]:
+		alld[x] = alld[x].map(norm(alld[x].std(),alld[x].mean()))
+	# get N principal components for the defects!
+	#lookPCA= pca.fit(alld[alld.columns[5:-1]].values)
+	#trans_values=pca.transform(alld[alld.columns[5:-1]].values)	
+	trans_values=alld[alld.columns[5:-1]].values
+	trans_values=[np.append(t,rclassdict[alld['desc'].values[x]]) for x,t in zip(range(len(alld)),trans_values)]
+	return trans_values,pca
+
+
 
 def dump_stats(alld):
 	for x in alld.columns[5:-1]:
@@ -103,13 +125,13 @@ def remove_surface_atoms_wZ (df):
 if load_from_prev==False:
 	
 	# run the data through the pipeline
-	alld=make_all_structures(se)
+	alld,descriptors,DOUT=make_all_structures(se)
 	pickle.dump(alld, open( "alld.p", "wb" ) )
 	# get pca object to save for later
 	pca = PCA(n_components=se.num_comp)
 	# dump the stats for each column, so they can be re-mapped in future simulations
 	dump_stats(alld)
-	
+
 	vals=list(np.unique(alld['desc'].values))
 	keys=range(len(vals))
 	classdict=dict(zip(keys,vals))
@@ -120,7 +142,7 @@ if load_from_prev==False:
 	pickle.dump(pca, open( "pca.p", "wb"))
 
 else:
-
+	fdf=pickle.load(open("fdf.p","rb"))
 	alld=pickle.load(open("alld.p","rb"))
 	pca=pickle.load(open("pca.p","rb"))
 	newv=pickle.load(open("newv.p","rb"))
@@ -139,39 +161,92 @@ print '\n There are '+str(len(vals))+' options.'
 classdict=dict(zip(keys,vals))
 rclassdict=dict(zip(vals,keys))
 
+
+pickle.dump(classdict, open( "classdict.p", "wb"))
+
 from sklearn.ensemble import RandomForestClassifier
 
-clf=RandomForestClassifier(n_estimators=1000, min_samples_leaf=10, verbose=True)
-#clf = svm.LinearSVC(verbose=True, max_iter=10000,C=100)
-
-temp=newdf.values
-
-print len(temp)
-
-X=[temp[f[0]] for f in final]
-Y=[rclassdict[f[1]] for f in final]
-
-#get an even representation from each possible output
-amt=min([np.where(np.array(Y)==x)[0].shape[0] for x in range(len(vals))])
-from random import shuffle
-Xt=[]
-Yt=[]
-for r in range(len(vals)):
-	indtemp=np.where(np.array(Y)==r)[0]
-	index_shuf=range(amt)
-	shuffle(index_shuf)
-	Xt.append([X[indtemp[i]] for i in index_shuf])
-	Yt.append([Y[indtemp[i]] for i in index_shuf])
-
-Xs=[item for sublist in Xt for item in sublist]
-Ys=[item for sublist in Yt for item in sublist]
-
-clf.fit(Xs,Ys)
-print clf.score(Xs,Ys)
-
-from sklearn.externals import joblib
-joblib.dump(clf, './pickled/rf.pkl') 
 
 
+clf_list=[RandomForestClassifier(n_estimators=1000, min_samples_leaf=10, verbose=True) for x in range(len(classdict.keys()))]
+
+
+
+def train_ML(clf,X,Y,vals=vals,trim=False):
+	if trim==True:
+		#get an even representation from each possible output
+		amt=min([np.where(np.array(Y)==x)[0].shape[0] for x in range(len(vals))])
+		from random import shuffle
+		Xt=[]
+		Yt=[]
+		for r in range(len(vals)):
+			indtemp=np.where(np.array(Y)==r)[0]
+			if len(indtemp) < se.sample_size:
+				index_shuf=range(len(indtemp))
+			else:
+				index_shuf=range(se.sample_size)
+			shuffle(index_shuf)
+			Xt.append([X[indtemp[i]] for i in index_shuf])
+			Yt.append([Y[indtemp[i]] for i in index_shuf])
+		Xs=[item for sublist in Xt for item in sublist]
+		Ys=[item for sublist in Yt for item in sublist]
+	else:
+		Xs=X
+		Ys=Y
+	clf.fit(Xs,Ys)
+	print clf.score(Xs,Ys)
+	return clf
+
+#assign final feature and descriptors
+
+clfdict={}
+for k in classdict.keys():
+	print "\n Training ..."
+	if classdict[k].find('bulk')==-1:
+		if classdict[k].find('fcc')!=-1:
+			comp=9
+		elif classdict[k].find('bcc')!=-1:
+			comp=8
+		Y=fdf[(fdf[55]==k)|(fdf[55]==comp)[::100]][55].values
+		X=fdf[(fdf[55]==k)|(fdf[55]==comp)[::100]][fdf.columns[:55]].values
+	clfdict[k]=train_ML(clf_list[k],X,Y)	
+#now save em
+for k in classdict.keys():
+	joblib.dump(clfdict[k], './pickled/'+classdict[k]+'.pkl') 
+	
+
+#allow the trees to be assigned according to each binary defect
+#X=newdf[newdf.columns[:se.num_comp]].values
+#Y=newdf[se.num_comp].values
+
+
+
+
+#for if pdf is made with only 2 PCA's
+
+
+
+#joblib.dump(clf, './pickled/rf.pkl') 
+
+
+def plot_def(xlo,xhi,ylo,yhi):
+		plt.cla()
+		plt.clf()
+		color=cm.rainbow(np.linspace(0,1.0,5))
+		markers = ['.','*','s','d','p']
+		params=list(itertools.product(*[color,markers]))
+		for ck,m in zip(classdict.keys(),params[:len(classdict.keys())]):
+			if classdict[ck].find('bulk')!=-1:
+				if classdict[ck].find('fcc')!=-1:
+					lilc=color[0]
+				else:
+					lilc=color[4]
+				plt.scatter(pdf[pdf[2]==ck][0].values[::90],pdf[pdf[2]==ck][1].values[::90],marker='o',c=lilc,s=130,label=classdict[ck])
+			#c=next(color)
+			#else:
+				#plt.scatter(pdf[pdf[2]==ck][0].values[:1000],pdf[pdf[2]==ck][1].values[:1000],marker=m[1],c=m[0],s=100,label=classdict[ck])
+		plt.axis([xlo,xhi,ylo,yhi], fontsize=24)	
+		plt.legend(bbox_to_anchor=(1.2,1.0),prop={'size':16})
+		plt.show()
 
 

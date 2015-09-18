@@ -17,7 +17,7 @@ def get_boxesf(scale,f):
 def adjust_temp(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
 
 	return 'units metal\nboundary        '+str(bound)+'\nregion 		sim block -'+str(lx*3)+' '+str(lx*2)+' -'+str(ly*3)+' '+str(ly*2)+' -'+str(lz*3)+' '+str(lz*2)+'\n'+'create_box 1 sim\n'+ \
-		'lattice '+struct+' '+str(lat)+' origin 0 0 0 orient x '+str(xi[0])+' '+str(xi[1])+' '+str(xi[2])+' orient y '+ str(yi[0])+' '+str(yi[1])+' '+str(yi[2])+' orient z '+str(zi[0])+' '+str(zi[1])+' '+str(zi[2])+ '\n'+'create_atoms 1 box\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.05 0.05 0.05 '+str(random.randint(10,1000))+'\n'+\
+		'lattice '+struct+' '+str(lat)+' origin 0 0 0 orient x '+str(xi[0])+' '+str(xi[1])+' '+str(xi[2])+' orient y '+ str(yi[0])+' '+str(yi[1])+' '+str(yi[2])+' orient z '+str(zi[0])+' '+str(zi[1])+' '+str(zi[2])+ '\n'+'create_atoms 1 box\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.025 0.025 0.025 '+str(random.randint(10,1000))+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
 
 def adjust_temp_athermal(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
@@ -28,7 +28,7 @@ def adjust_temp_athermal(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
 
 def adjust_temp_read(lat,output,datname):
 
-	return 'units metal\nboundary s s p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.05 0.05 0.05 '+str(random.randint(10,1000))+'\n'+\
+	return 'units metal\nboundary s s p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.025 0.025 0.025 '+str(random.randint(10,1000))+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
 
 
@@ -458,43 +458,46 @@ def make_all_structures(se):
 	dic={se.bounds[0]:2,se.bounds[1]:1,se.bounds[2]:0} #convert the different boundaries to an index
 	descriptors=[]
 	#Bi spectrum gathering pipeline
-	DOUT=make_surface_prototypes(se,alld,dic)
-	alld=surfaces(se,alld,descriptors,dic,DOUT)
-	DOUT=make_vacancy_prototypes(se,alld,dic)
-	alld=vacancies(se,alld,descriptors,DOUT)
-	DOUT=make_interstitial_prototypes(se,alld,dic)
-	alld=interstitials(se,alld,descriptors,DOUT)
+	#DOUT=make_surface_prototypes(se,alld,dic)
+	#alld=surfaces(se,alld,descriptors,dic,DOUT)
+	#DOUT=make_vacancy_prototypes(se,alld,dic)
+	#alld=vacancies(se,alld,descriptors,DOUT)
+	#DOUT=make_interstitial_prototypes(se,alld,dic)
+	#alld=interstitials(se,alld,descriptors,DOUT)
 	DOUT=make_dislocations_prototypes(se)
 	alld=dislocations(se,alld,descriptors,DOUT)
 	#may not work, may redo above with better organization of alld
-	alld.index = range(len(alld))	
-	alld=alld.dropna()
-	alld=alld[alld['desc']!='Please Drop']
+	#alld.index = range(len(alld))	
+	#alld=alld.dropna()
+	#alld=alld[alld['desc']!='Please Drop']
 	
 	return alld,descriptors,DOUT
 
-class simulation_env:
-     def __init__(self):
-         self.sampling_rate = 0.001#how often we select for keeps
-         self.num_comp = 5#number of PCA components that the bi components are reduced to
-	 self.sample_size=100000#size of samples when machine learning
-	 self.thermal=10 #number of thermal perturbations for each config.
-	 self.lattice=3.597 #lattice size
-	 self.indicies=[[[1,1,1],[-1,1,0],[-1,-1,2]], [[0,1,0],[0,0,1],[1,0,0]]]#crystal orientations
-	 self.interstitial={'fcc':[[0.25,0.25,0.25],[0.5,0.0,0.0]],'bcc':[[0.5,0.25,0.0],[0.5,0.5,0.0]]}# interstitial sites for fcc, bcc (tet then oct)
-	 self.structs=['fcc','bcc'] #structures considered
-	 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
-	 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
-	 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
-	 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[1]:'BCC_temp.structures',self.defect_names[2]:'temp.structures'} #dislocation prototype file structural analysis files
+
+if __name__=="__main__":
+
+	class simulation_env:
+	     def __init__(self):
+		 self.sampling_rate = 0.001#how often we select for keeps
+		 self.num_comp = 5#number of PCA components that the bi components are reduced to
+		 self.sample_size=100000#size of samples when machine learning
+		 self.thermal=10 #number of thermal perturbations for each config.
+		 self.lattice=3.597 #lattice size
+		 self.indicies=[[[1,1,1],[-1,1,0],[-1,-1,2]], [[0,1,0],[0,0,1],[1,0,0]]]#crystal orientations
+		 self.interstitial={'fcc':[[0.25,0.25,0.25],[0.5,0.0,0.0]],'bcc':[[0.5,0.25,0.0],[0.5,0.5,0.0]]}# interstitial sites for fcc, bcc (tet then oct)
+		 self.structs=['fcc','bcc'] #structures considered
+		 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
+		 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
+		 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
+		 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[1]:'BCC_temp.structures',self.defect_names[2]:'temp.structures'} #dislocation prototype file structural analysis files
 	
 	
-#f has the each of the files to consider, tdict relates the file name to the defect name
-	#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot
-	# is the description and the [1] spot is the value needed
+	#f has the each of the files to consider, tdict relates the file name to the defect name
+		#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot
+		# is the description and the [1] spot is the value needed
 
-se=simulation_env()
+	se=simulation_env()
 
-alld,descriptors,DOUT=make_all_structures(se)
+	alld,descriptors,DOUT=make_all_structures(se)
 
 
