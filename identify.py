@@ -121,7 +121,7 @@ def make_output(fn,df,out):
 
 if __name__ == "__main__":
 	clfdict=initialize_classification_env()
-	dat,output,trans,tdata,preds,cd=nab_and_format_bispec("dislocationfccpartial.lmp8287",clfdict)
+	dat,output,trans,tdata,preds,cd=nab_and_format_bispec("keep_octahedralinterstitial_bcc4012",clfdict)
 	#dat,output=nab_and_format_bispec("dislocationbcc_disloc.lmp6538",get_cats=True)	
-	make_output("dislocationfccpartial.lmp8287",dat,output)
+	make_output("keep_octahedralinterstitial_bcc4012",dat,output)
 

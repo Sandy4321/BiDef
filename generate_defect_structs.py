@@ -15,10 +15,24 @@
 
 
 
-# 9/18: Newest thing to do is to make sure that the generation of the dislocation training set worked properly, it's really the only thing I have left.
+# 9/19: Prototype now works
 
-#This opens the door for some amazing new techniques, where regions could be identified dynamically that are out of the fitting regime for the potentials being used.
-# these regions of the simulation could be redone with quantum methods or more accurate potentials
+# ToDo:
+# Add in gain boundaries -- they should be rather simple, we'll generate one large cell and use iterations of that for the GB
+# Test one large classifier instead of the individual method, should be much faster
+# write the code that goes from a file of atomic coordinates to the classified objects
+# write the UX code which returns each atom with a descriptor.
+# try introducing more temerature variations in the samples, now that we've verified it works, this way we can have an
+#advantage over other methods!!
+# Use method on some live strain tests which I have -- should be able to identify surface atoms, ect.
+
+
+#then for writing -- make the introduction include the scope: reduces time intesive analysis, allows for cells to large to investigate manually, and finally gives the ability for simulations
+#to section off parts with a particular behavior to use a different set of potentials or a more advanced method.
+
+#Also make the algorithmic description, using the PCA to illustrate the point as the simulation progresses. 
+
+
 
 import pandas as pd
 from itertools import cycle
@@ -34,7 +48,7 @@ from matplotlib import pyplot as plt
 from matplotlib.pyplot import cm 
 from sklearn.externals import joblib
 
-load_from_prev=True
+load_from_prev=False
 
 #grain boundaries -- for a spectrum of separation angles, we'll do a separate regression to find the grain-boundary angle after identifying the struct as a GB
 
@@ -57,7 +71,7 @@ class simulation_env:
 	 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
 	 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
 	 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
-	 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[1]:'BCC_temp.structures',self.defect_names[2]:'temp.structures'} #dislocation prototype file structural analysis files
+	 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[2]:'BCC_temp.structures',self.defect_names[1]:'temp.structures'} #dislocation prototype file structural analysis files
 	
 #f has the each of the files to consider, tdict relates the file name to the defect name
 	#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot
@@ -137,7 +151,9 @@ if load_from_prev==False:
 	classdict=dict(zip(keys,vals))
 	rclassdict=dict(zip(vals,keys))
 	
-	newv,pca=consolidate_bispec(alld,pca,rclassdict)
+	newv,pca=consolidate_data(alld,pca,rclassdict)
+	fdf=pd.DataFrame(newv)
+	pickle.dump(fdf, open( "fdf.p", "wb"))
 	pickle.dump(newv, open( "newv.p", "wb"))
 	pickle.dump(pca, open( "pca.p", "wb"))
 

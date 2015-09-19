@@ -341,14 +341,14 @@ def make_dislocations_prototypes(se):
 	#OK what types of defects, FCC full, partial, BCC full... strain and thermalize
 	DOUT={}
 	tdict={se.defect_names[0]:'fcc_full_disloc',\
-		   se.defect_names[1]:'bcc_full_disloc',\
-		   se.defect_names[2]:'fcc_partial_disloc'}
+		   se.defect_names[1]:'fcc_partial_disloc',\
+		   se.defect_names[2]:'bcc_full_disloc'}
 	
 	for d in se.defect_names:
 		lil_d={se.flocs[d]:tdict[d]}
 		if tdict[d].find('fcc')!=-1:
 			if tdict[d].find('full')!=-1:
-				lil_cond={se.flocs[d]:['CSP_surf',1]}
+				lil_cond={se.flocs[d]:['CSP_surf',0.25]}
 			else:
 				lil_cond={se.flocs[d]:['CNA',1]}
 		elif tdict[d].find('bcc')!=-1:
@@ -458,18 +458,17 @@ def make_all_structures(se):
 	dic={se.bounds[0]:2,se.bounds[1]:1,se.bounds[2]:0} #convert the different boundaries to an index
 	descriptors=[]
 	#Bi spectrum gathering pipeline
-	#DOUT=make_surface_prototypes(se,alld,dic)
-	#alld=surfaces(se,alld,descriptors,dic,DOUT)
-	#DOUT=make_vacancy_prototypes(se,alld,dic)
-	#alld=vacancies(se,alld,descriptors,DOUT)
-	#DOUT=make_interstitial_prototypes(se,alld,dic)
-	#alld=interstitials(se,alld,descriptors,DOUT)
+	DOUT=make_surface_prototypes(se,alld,dic)
+	alld=surfaces(se,alld,descriptors,dic,DOUT)
+	DOUT=make_vacancy_prototypes(se,alld,dic)
+	alld=vacancies(se,alld,descriptors,DOUT)
+	DOUT=make_interstitial_prototypes(se,alld,dic)
+	alld=interstitials(se,alld,descriptors,DOUT)
 	DOUT=make_dislocations_prototypes(se)
 	alld=dislocations(se,alld,descriptors,DOUT)
-	#may not work, may redo above with better organization of alld
-	#alld.index = range(len(alld))	
+	alld.index = range(len(alld))	
 	#alld=alld.dropna()
-	#alld=alld[alld['desc']!='Please Drop']
+	alld=alld[alld['desc']!='Please Drop']
 	
 	return alld,descriptors,DOUT
 
@@ -489,7 +488,7 @@ if __name__=="__main__":
 		 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
 		 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
 		 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
-		 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[1]:'BCC_temp.structures',self.defect_names[2]:'temp.structures'} #dislocation prototype file structural analysis files
+		 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[2]:'BCC_temp.structures',self.defect_names[1]:'temp.structures'} #dislocation prototype file structural analysis files
 	
 	
 	#f has the each of the files to consider, tdict relates the file name to the defect name
