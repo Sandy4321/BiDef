@@ -12,12 +12,12 @@ def get_boxes(scale):
 
 def get_boxesf(scale,f):
 	b=['x scale '+str(scale*f), ' y scale '+str(scale*f), ' z scale '+str(scale*f)]
-	return [b[0],b[1],b[2], b[0]+b[1],b[0]+b[2],b[1]+b[2],b[0]+b[1]+b[2]]
+	return [b[0]+b[1]+b[2]]
 
 def adjust_temp(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
 
 	return 'units metal\nboundary        '+str(bound)+'\nregion 		sim block -'+str(lx*3)+' '+str(lx*2)+' -'+str(ly*3)+' '+str(ly*2)+' -'+str(lz*3)+' '+str(lz*2)+'\n'+'create_box 1 sim\n'+ \
-		'lattice '+struct+' '+str(lat)+' origin 0 0 0 orient x '+str(xi[0])+' '+str(xi[1])+' '+str(xi[2])+' orient y '+ str(yi[0])+' '+str(yi[1])+' '+str(yi[2])+' orient z '+str(zi[0])+' '+str(zi[1])+' '+str(zi[2])+ '\n'+'create_atoms 1 box\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.025 0.025 0.025 '+str(random.randint(10,1000))+'\n'+\
+		'lattice '+struct+' '+str(lat)+' origin 0 0 0 orient x '+str(xi[0])+' '+str(xi[1])+' '+str(xi[2])+' orient y '+ str(yi[0])+' '+str(yi[1])+' '+str(yi[2])+' orient z '+str(zi[0])+' '+str(zi[1])+' '+str(zi[2])+ '\n'+'create_atoms 1 box\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.04 0.04 0.04 '+str(random.randint(10,1000))+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
 
 def adjust_temp_athermal(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
@@ -26,11 +26,14 @@ def adjust_temp_athermal(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
 		'lattice '+struct+' '+str(lat)+' origin 0 0 0 orient x '+str(xi[0])+' '+str(xi[1])+' '+str(xi[2])+' orient y '+ str(yi[0])+' '+str(yi[1])+' '+str(yi[2])+' orient z '+str(zi[0])+' '+str(zi[1])+' '+str(zi[2])+ '\n'+'create_atoms 1 box\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
 
-def adjust_temp_read(lat,output,datname):
-
-	return 'units metal\nboundary s s p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.025 0.025 0.025 '+str(random.randint(10,1000))+'\n'+\
+def adjust_temp_read(lat,output,datname, athermal=False):
+	if athermal==False:
+		out='units metal\nboundary s s p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.04 0.04 0.04 '+str(random.randint(10,1000))+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
-
+	else:
+		out='units metal\nboundary s s p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
+		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
+	return out
 
 # we need to nab the bispec components for every defect type, then merge them all into one dataframe, then standardize the coefficients, then perform the PCA
 
@@ -343,7 +346,8 @@ def make_dislocations_prototypes(se):
 	tdict={se.defect_names[0]:'fcc_full_disloc',\
 		   se.defect_names[1]:'fcc_partial_disloc',\
 		   se.defect_names[2]:'bcc_full_disloc'}
-	
+
+
 	for d in se.defect_names:
 		lil_d={se.flocs[d]:tdict[d]}
 		if tdict[d].find('fcc')!=-1:
@@ -353,7 +357,7 @@ def make_dislocations_prototypes(se):
 				lil_cond={se.flocs[d]:['CNA',1]}
 		elif tdict[d].find('bcc')!=-1:
 			lil_cond={se.flocs[d]:['CNA_surf',3]}
-
+		
 		DOUT[d]=initialize_dislocation_descriptors(se.flocs[d],lil_d,lil_cond)	
 		DOUT[d].index=DOUT[d]['PID']
 	print "\n\n\n			FINISHED DISLOCATION PROTOTYPES		\n\n\n"
@@ -366,10 +370,7 @@ def dislocations(se,alld,descriptors,DOUT):
 	#OK what types of defects, FCC full, partial, BCC full... strain and thermalize
 	for d in se.defect_names:
 		for s in se.scales:
-			if d.find('full')!=-1 or d.find('bcc')!=-1:
-				box=get_boxesf(s,se.lattice/4.02)
-			else:
-				box=get_boxes(s)
+			box=get_boxes(s)
 			for b in box:
 				for t in range(se.thermal):
 						
@@ -405,8 +406,53 @@ def dislocations(se,alld,descriptors,DOUT):
 	return alld
 
 
+def make_grain_prototypes(se):
+	#OK what types of defects, FCC full, partial, BCC full... strain and thermalize
+	DOUT={}
+	tdict={se.grain_names[0]:'fcc_GB',\
+		   se.grain_names[1]:'bcc_GB'}
+	
+	for gn in se.grain_names:						
+			
+		template=adjust_temp_read(se.lattice,gn+'.struct',gn,athermal=True)
+		with open('temp.in', 'w') as f:
+			f.write(template)
+			f.write('\nrun 0 post no\n')
+		lmp=lammps()					
+		lmp.file('temp.in')
+		lmp.close()
+		check=run_ovitos('CNA',gn+'.struct',gn+'CNAOUT')
+		
+		lil_d={gn+'CNAOUT':tdict[gn]}
+		if tdict[gn].find('fcc')!=-1:
+			lil_cond={gn+'CNAOUT':['CNA',1]}
+		elif tdict[gn].find('bcc')!=-1:
+			lil_cond={gn+'CNAOUT':['CNA',3]}
+
+		DOUT[gn]=initialize_dislocation_descriptors(gn+'CNAOUT',lil_d,lil_cond)	
+		DOUT[gn].index=DOUT[gn]['PID']
+	print "\n\n\n			FINISHED GRAIN BOUNDARY PROTOTYPES		\n\n\n"
+	return DOUT
 
 
+
+def grain_boundaries(se,alld,DOUT):
+
+	for gn in se.grain_names:
+		template=adjust_temp_read(se.lattice,'temporary.out',gn)
+		with open('temp.in', 'w') as f:
+			f.write(template)
+			f.write('\nrun 0 post no\n')
+		lmp=lammps()
+		lmp.file('temp.in')
+		temp=nab_bispec_train('temporary.out')					
+		lmp.close()
+		# we need the number of atoms, the structure, flag for the type of intersitial
+		print '\n'+gn
+		temp.index=temp['id']
+		temp['desc']=DOUT[gn]['desc']
+		alld=alld.append(temp)
+	return alld
 
 #assign the descriptors for each of the dislocation structures (no Kmeans necessary)
 def initialize_dislocation_descriptors(f,tdict,condit):
@@ -466,6 +512,8 @@ def make_all_structures(se):
 	alld=interstitials(se,alld,descriptors,DOUT)
 	DOUT=make_dislocations_prototypes(se)
 	alld=dislocations(se,alld,descriptors,DOUT)
+	DOUT=make_grain_prototypes(se)
+	alld=grain_boundaries(se,alld,DOUT)
 	alld.index = range(len(alld))	
 	#alld=alld.dropna()
 	alld=alld[alld['desc']!='Please Drop']
@@ -489,7 +537,7 @@ if __name__=="__main__":
 		 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
 		 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
 		 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[2]:'BCC_temp.structures',self.defect_names[1]:'temp.structures'} #dislocation prototype file structural analysis files
-	
+		 self.grain_names=['fcc_polycrystal.lmp','bcc_polycrystal.lmp']
 	
 	#f has the each of the files to consider, tdict relates the file name to the defect name
 		#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot

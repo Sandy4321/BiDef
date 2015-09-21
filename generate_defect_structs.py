@@ -18,9 +18,8 @@
 # 9/19: Prototype now works
 
 # ToDo:
+# regenerate dislocation structures -- make them the correct size so we don't have to rescale them.
 # Add in gain boundaries -- they should be rather simple, we'll generate one large cell and use iterations of that for the GB
-# Test one large classifier instead of the individual method, should be much faster
-# write the code that goes from a file of atomic coordinates to the classified objects
 # write the UX code which returns each atom with a descriptor.
 # try introducing more temerature variations in the samples, now that we've verified it works, this way we can have an
 #advantage over other methods!!
@@ -49,6 +48,7 @@ from matplotlib.pyplot import cm
 from sklearn.externals import joblib
 
 load_from_prev=False
+need_seperate_clfs=False
 
 #grain boundaries -- for a spectrum of separation angles, we'll do a separate regression to find the grain-boundary angle after identifying the struct as a GB
 
@@ -60,9 +60,9 @@ def norm (s, m) : return lambda x : (x - m) / s
 
 class simulation_env:
      def __init__(self):
-	 self.sampling_rate = 0.025#how often we select for keeps
+	 self.sampling_rate = 0.001#how often we select for keeps
 	 self.num_comp = 5#number of PCA components that the bi components are reduced to
-	 self.sample_size=3000#size of samples from each classification when training
+	 self.sample_size=100000#size of samples when machine learning
 	 self.thermal=10 #number of thermal perturbations for each config.
 	 self.lattice=3.597 #lattice size
 	 self.indicies=[[[1,1,1],[-1,1,0],[-1,-1,2]], [[0,1,0],[0,0,1],[1,0,0]]]#crystal orientations
@@ -72,6 +72,7 @@ class simulation_env:
 	 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
 	 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
 	 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[2]:'BCC_temp.structures',self.defect_names[1]:'temp.structures'} #dislocation prototype file structural analysis files
+	 self.grain_names=['fcc_polycrystal.lmp','bcc_polycrystal.lmp']
 	
 #f has the each of the files to consider, tdict relates the file name to the defect name
 	#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot
@@ -150,7 +151,7 @@ if load_from_prev==False:
 	keys=range(len(vals))
 	classdict=dict(zip(keys,vals))
 	rclassdict=dict(zip(vals,keys))
-	
+	# no more PCA is performed.
 	newv,pca=consolidate_data(alld,pca,rclassdict)
 	fdf=pd.DataFrame(newv)
 	pickle.dump(fdf, open( "fdf.p", "wb"))
@@ -183,11 +184,6 @@ pickle.dump(classdict, open( "classdict.p", "wb"))
 from sklearn.ensemble import RandomForestClassifier
 
 
-
-clf_list=[RandomForestClassifier(n_estimators=1000, min_samples_leaf=10, verbose=True) for x in range(len(classdict.keys()))]
-
-
-
 def train_ML(clf,X,Y,vals=vals,trim=False):
 	if trim==True:
 		#get an even representation from each possible output
@@ -215,21 +211,28 @@ def train_ML(clf,X,Y,vals=vals,trim=False):
 
 #assign final feature and descriptors
 
-clfdict={}
-for k in classdict.keys():
-	print "\n Training ..."
-	if classdict[k].find('bulk')==-1:
-		if classdict[k].find('fcc')!=-1:
-			comp=9
-		elif classdict[k].find('bcc')!=-1:
-			comp=8
-		Y=fdf[(fdf[55]==k)|(fdf[55]==comp)[::100]][55].values
-		X=fdf[(fdf[55]==k)|(fdf[55]==comp)[::100]][fdf.columns[:55]].values
-	clfdict[k]=train_ML(clf_list[k],X,Y)	
-#now save em
-for k in classdict.keys():
-	joblib.dump(clfdict[k], './pickled/'+classdict[k]+'.pkl') 
-	
+if need_seperate_clfs==True:
+	clf_list=[RandomForestClassifier(n_estimators=1000, min_samples_leaf=10, verbose=True) for x in range(len(classdict.keys()))]
+	clfdict={}
+	for k in classdict.keys():
+		print "\n Training ..."
+		if classdict[k].find('bulk')==-1:
+			if classdict[k].find('fcc')!=-1:
+				comp=9
+			elif classdict[k].find('bcc')!=-1:
+				comp=8
+			Y=fdf[(fdf[55]==k)|(fdf[55]==comp)[::100]][55].values
+			X=fdf[(fdf[55]==k)|(fdf[55]==comp)[::100]][fdf.columns[:55]].values
+		clfdict[k]=train_ML(clf_list[k],X,Y)	
+	#now save em
+	for k in classdict.keys():
+		joblib.dump(clfdict[k], './pickled/'+classdict[k]+'.pkl') 
+else:
+	clftot=RandomForestClassifier(n_estimators=1000, min_samples_leaf=10, verbose=True)
+	X=fdf[fdf.columns[:55]].values[::100]
+	Y=fdf[fdf.columns[55]].values[::100]
+	clftot.fit(X,Y)
+	joblib.dump(clftot, './pickled/clftot.pkl')
 
 #allow the trees to be assigned according to each binary defect
 #X=newdf[newdf.columns[:se.num_comp]].values

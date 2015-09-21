@@ -1,6 +1,7 @@
 #this script identifies the entries coming from a lammps dump -- any lammps dump using the specified trained ML classifier
 import pickle
 import pandas as pd
+from lammps import lammps
 from sklearn.externals import joblib
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
@@ -41,7 +42,11 @@ def initialize_classification_env():
 	return clfdict
 
 
-def nab_and_format_bispec(fn,clfdict,get_cats=False,need_PCA=False):
+def initialize_full_classifier():
+	print "\n loading in classifier..."
+	return joblib.load('./pickled/clftot.pkl')
+	
+def nab_and_format_bispec(fn,clfdict,expected_struct,clffull,get_cats=False,need_PCA=False,full_clf=True):
 	df=pd.read_csv(fn,skiprows=8,delim_whitespace=True,low_memory=False)
 	# get rid of the bogus first columns
 	cols=df.columns[2::]
@@ -76,30 +81,58 @@ def nab_and_format_bispec(fn,clfdict,get_cats=False,need_PCA=False):
 	classdict=pickle.load(open("classdict.p","rb"))
 	
 	print "\n making prediction..."
-	predictions={}
-	values={}
-	for k in classdict.keys():
-		#values[k]=clfdict[k].predict(trans_values)
-		predictions[k]=clfdict[k].predict_proba(trans_values)
-	
-	out=np.zeros(len(trans_values))
-	#need the maximum likelyhood defect (could be bulk if all are small)
-	for x in range(len(trans_values)):
-		poss_def=np.zeros(len(classdict))
+	if full_clf==False:	
+		predictions={}
+		values={}
 		for k in classdict.keys():
-			if k > 9:
-				p=1
+			#values[k]=clfdict[k].predict(trans_values)
+			predictions[k]=clfdict[k].predict_proba(trans_values)
+	
+		out=np.zeros(len(trans_values))
+		#need the maximum likelyhood defect (could be bulk if all are small)
+		for x in range(len(trans_values)):
+			poss_def=np.zeros(len(classdict))
+			for k in classdict.keys():
+				if k > 9:
+					p=1
+				else:
+					p=0
+				if predictions[k][x][p] >= 0.60 and classdict[k].find(expected_struct)!=-1:
+					poss_def[k]=predictions[k][x][p]
+			if sum(poss_def) > 0:
+				out[x]=np.array(poss_def).argmax()
 			else:
-				p=0
-			if predictions[k][x][p] >= 0.75:
-				poss_def[k]=predictions[k][x][p]
-		if sum(poss_def) > 0:
-			out[x]=np.array(poss_def).argmax()
-		else:
-			out[x]=-1		
- 
+				out[x]=-1
+	else: #default full clf structure
+		out=clffull.predict(trans_values)
+ 		predictions=[]
 	return df,out,trans_values,tdata,predictions,classdict
 
+def get_former_dump(lat,output,datname,step,bounds,boundary):
+
+	return 'units metal\n'+'boundary '+str(boundary)+'\nregion 		sim block '+str(bounds[0])+' '+str(bounds[1])+' '+str(bounds[2])+' '+str(bounds[3])+' '+str(bounds[4])+' '+str(bounds[5])+'\n'+'create_box 1 sim\n'+'read_dump '+str(datname)+' '+str(step)+' x y z add yes'+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
+		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
+
+def get_boxesf(scale,f):
+	b=['x scale '+str(scale*f), ' y scale '+str(scale*f), ' z scale '+str(scale*f)]
+	return str(b[0])+' '+str(b[1])+' '+str(b[2])
+
+def make_into_bispec(fn,latt,se,clfdict,clf,expected_struct='fcc',frame=0,bounds='p p p'):
+#turns a lammps dump into bispec components
+# we convert everything to Cu lattice parameter scaling for now
+	b=[8.0960598,71.3280029,0.0,22.0,-51.1679993,57.1920013]
+	template=get_former_dump(se.lattice,'temporaryfile.out',fn,frame,b,bounds) 
+	with open('temp.in', 'w') as f:
+		f.write(template)
+		f.write('\nchange_box all '+get_boxesf(1.0,se.lattice/latt)+'\n')
+		f.write('\nrun 0 post no\n')
+	
+	lmp=lammps()						
+	lmp.file('temp.in')
+	lmp.close()
+	dat,output,trans,tdata,preds,cd=nab_and_format_bispec('temporaryfile.out',clfdict,expected_struct,clf)
+	make_output("temporaryfile.out",dat,output)
+	return dat,output,trans,tdata,preds,cd
 
 def make_output(fn,df,out):
 
@@ -120,8 +153,33 @@ def make_output(fn,df,out):
 	pass
 
 if __name__ == "__main__":
-	clfdict=initialize_classification_env()
-	dat,output,trans,tdata,preds,cd=nab_and_format_bispec("keep_octahedralinterstitial_bcc4012",clfdict)
+
+	class simulation_env:
+	     def __init__(self):
+		 self.sampling_rate = 0.025#how often we select for keeps
+		 self.num_comp = 5#number of PCA components that the bi components are reduced to
+		 self.sample_size=3000#size of samples from each classification when training
+		 self.thermal=10 #number of thermal perturbations for each config.
+		 self.lattice=3.597 #lattice size
+		 self.indicies=[[[1,1,1],[-1,1,0],[-1,-1,2]], [[0,1,0],[0,0,1],[1,0,0]]]#crystal orientations
+		 self.interstitial={'fcc':[[0.25,0.25,0.25],[0.5,0.0,0.0]],'bcc':[[0.5,0.25,0.0],[0.5,0.5,0.0]]}# interstitial sites for fcc, bcc (tet then oct)
+		 self.structs=['fcc','bcc'] #structures considered
+		 self.bounds=['p p s', 'p s p', 's p p'] #boundaries
+		 self.scales=[1+x for x in np.arange(0.01,0.11,0.05)] #scales for straining the simulation cell
+		 self.defect_names=['fccfull.lmp','fccpartial.lmp','bcc_disloc.lmp']
+		 self.flocs={self.defect_names[0]:'fccfull_temp.structures',self.defect_names[2]:'BCC_temp.structures',self.defect_names[1]:'temp.structures'} #dislocation prototype file structural analysis files
+	
+	#f has the each of the files to consider, tdict relates the file name to the defect name
+		#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot
+		# is the description and the [1] spot is the value needed
+
+	se=simulation_env()
+
+	#clfdict=initialize_classification_env()
+	clfdict={}	
+	clftot=initialize_full_classifier()
+	#dat,output,trans,tdata,preds,cd=nab_and_format_bispec("keep_octahedralinterstitial_bcc4012",clfdict)
 	#dat,output=nab_and_format_bispec("dislocationbcc_disloc.lmp6538",get_cats=True)	
-	make_output("keep_octahedralinterstitial_bcc4012",dat,output)
+	#make_output("keep_octahedralinterstitial_bcc4012",dat,output)
+	dat,output,trans,tdata,preds,cd=make_into_bispec('dump.Cu.Cu_225_10000',se.lattice,se,clfdict,clftot,frame=600,bounds='s p p')
 
