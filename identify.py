@@ -45,7 +45,19 @@ def initialize_classification_env():
 def initialize_full_classifier():
 	print "\n loading in classifier..."
 	return joblib.load('./pickled/clftot.pkl')
-	
+
+def second_largest(numbers):
+    count = 0
+    m1 = m2 = float('-inf')
+    for x in numbers:
+        count += 1
+        if x > m2:
+            if x >= m1:
+                m1, m2 = x, m1            
+            else:
+                m2 = x
+    return m2 if count >= 2 else None
+
 def nab_and_format_bispec(fn,clfdict,expected_struct,clffull,get_cats=False,need_PCA=False,full_clf=True):
 	df=pd.read_csv(fn,skiprows=8,delim_whitespace=True,low_memory=False)
 	# get rid of the bogus first columns
@@ -104,13 +116,25 @@ def nab_and_format_bispec(fn,clfdict,expected_struct,clffull,get_cats=False,need
 			else:
 				out[x]=-1
 	else: #default full clf structure
-		out=clffull.predict(trans_values)
- 		predictions=[]
+		probs=clffull.predict_proba(trans_values)
+		out=[]
+ 		for p in probs:
+			# if the difference is less than 5%, and one option is a defect, take the defect!
+			mp = max(p)
+			'''			
+			if max(p) - second_largest(p) <= 0.05 and (np.array(p).argmax() == 9 or np.array(p).argmax() == 10): 
+				mp = (np.array(p)==second_largest(p)).argmax()
+			else:
+				mp = np.array(p).argmax()
+			'''
+			out.append(mp)
+
+		predictions=probs
 	return df,out,trans_values,tdata,predictions,classdict
 
 def get_former_dump(lat,output,datname,step,bounds,boundary):
 
-	return 'units metal\n'+'boundary '+str(boundary)+'\nregion 		sim block '+str(bounds[0])+' '+str(bounds[1])+' '+str(bounds[2])+' '+str(bounds[3])+' '+str(bounds[4])+' '+str(bounds[5])+'\n'+'create_box 1 sim\n'+'read_dump '+str(datname)+' '+str(step)+' x y z add yes'+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
+	return 'units metal\n'+'boundary '+str(boundary)+'\nregion 		sim block '+str(bounds[0])+' '+str(bounds[1])+' '+str(bounds[2])+' '+str(bounds[3])+' '+str(bounds[4])+' '+str(bounds[5])+'\n'+'create_box 1 sim\n'+'read_dump '+str(datname)+' '+str(step)+' x y z add yes box yes'+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
 
 def get_boxesf(scale,f):
@@ -124,7 +148,7 @@ def make_into_bispec(fn,latt,se,clfdict,clf,expected_struct='fcc',frame=0,bounds
 	template=get_former_dump(se.lattice,'temporaryfile.out',fn,frame,b,bounds) 
 	with open('temp.in', 'w') as f:
 		f.write(template)
-		f.write('\nchange_box all '+get_boxesf(1.0,se.lattice/latt)+'\n')
+		f.write('\nchange_box all '+get_boxesf(1.0,se.lattice/latt)+' boundary '+bounds+' remap units box\n')
 		f.write('\nrun 0 post no\n')
 	
 	lmp=lammps()						

@@ -14,6 +14,9 @@ def get_boxesf(scale,f):
 	b=['x scale '+str(scale*f), ' y scale '+str(scale*f), ' z scale '+str(scale*f)]
 	return [b[0]+b[1]+b[2]]
 
+
+# the lammps file templates need to be able to dynamically assign the correct number of vb spots, so the the B can be changed from 8 to W/E.
+
 def adjust_temp(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
 
 	return 'units metal\nboundary        '+str(bound)+'\nregion 		sim block -'+str(lx*3)+' '+str(lx*2)+' -'+str(ly*3)+' '+str(ly*2)+' -'+str(lz*3)+' '+str(lz*2)+'\n'+'create_box 1 sim\n'+ \
@@ -28,10 +31,10 @@ def adjust_temp_athermal(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
 
 def adjust_temp_read(lat,output,datname, athermal=False):
 	if athermal==False:
-		out='units metal\nboundary s s p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.04 0.04 0.04 '+str(random.randint(10,1000))+'\n'+\
+		out='units metal\nboundary p p p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.04 0.04 0.04 '+str(random.randint(10,1000))+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
 	else:
-		out='units metal\nboundary s s p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
+		out='units metal\nboundary p p p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
 		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
 	return out
 
@@ -406,6 +409,48 @@ def dislocations(se,alld,descriptors,DOUT):
 	return alld
 
 
+def tensile_prototype(se):
+	DOUT={}
+	# we have 3 tensile tests right now
+	for x in range(1,4):
+		template=adjust_temp_read(se.lattice,'tensile_'+str(x)+'.struct','tensile_'+str(x)+'.out',athermal=True)
+		with open('temp.in', 'w') as f:
+			f.write(template)
+			f.write('\nrun 0 post no\n')
+		lmp=lammps()					
+		lmp.file('temp.in')
+		lmp.close()
+		check=run_ovitos('CNA','tensile_'+str(x)+'.struct','tensile_'+str(x)+'CNAOUT')
+		lil_d={'tensile_'+str(x)+'CNAOUT':'fcc_partial_disloc'}
+		lil_cond={'tensile_'+str(x)+'CNAOUT':['CNAonly',2]}
+
+		DOUT[x]=initialize_dislocation_descriptors('tensile_'+str(x)+'CNAOUT',lil_d,lil_cond)	
+		DOUT[x].index=DOUT[x]['PID']
+	print "\n\n\n			FINISHED TENSILE PROTOTYPES		\n\n\n"
+
+	return DOUT
+
+def add_tensile_dislocations(se,alld,DOUT):
+	
+	for x in range(1,4):
+		#for t in range(se.thermal):
+		template=adjust_temp_read(se.lattice,'temporary.out','tensile_'+str(x)+'.out',athermal=True)
+		with open('temp.in', 'w') as f:
+			f.write(template)
+			f.write('\nrun 0 post no\n')
+		lmp=lammps()
+		lmp.file('temp.in')
+		temp=nab_bispec_train('temporary.out')					
+		lmp.close()
+		# we need the number of atoms, the structure, flag for the type of intersitial
+		print '\n tensile dislocation run '+str(x)
+		temp.index=temp['id']
+		temp['desc']=DOUT[x]['desc']
+		alld=alld.append(temp)
+
+	return alld
+
+
 def make_grain_prototypes(se):
 	#OK what types of defects, FCC full, partial, BCC full... strain and thermalize
 	DOUT={}
@@ -460,7 +505,7 @@ def initialize_dislocation_descriptors(f,tdict,condit):
 	#condit contains the conditions for each simulation, surf or no surf, CNA or CSP [0] spot
 	# is the description and the [1] spot is the value needed
 	tdf=pd.read_csv(f,delim_whitespace=True)
-	tdf['desc']='Please Drop'
+	tdf['desc']='Please Drop' #all of the spares go to please drop!
 	if condit[f][0].find('surf')!=-1:#if it needs to trim the surfaces
 		#filter out the surface atoms
 		t1=tdf[tdf['X']<tdf['X'].max()-3.]
@@ -483,11 +528,14 @@ def initialize_dislocation_descriptors(f,tdict,condit):
 		tdf.ix[t1.index,'desc']=t1['desc']
 	else:
 		if condit[f][0].find('CNA')!=-1:
-			tdf.ix[tdf[tdf['TYPE']!=condit[f][1]].index,'desc']=tdict[f]
-			if tdict[f].find('fcc')!=-1:
-				tdf.ix[tdf[tdf['TYPE']==condit[f][1]].index,'desc']='bulk fcc'
-			else:
-				tdf.ix[tdf[tdf['TYPE']==condit[f][1]].index,'desc']='bulk bcc'
+			if condit[f][0].find('only')!=-1: # say we only want the atoms with a particular CNA
+				tdf.ix[tdf[tdf['TYPE']==condit[f][1]].index,'desc']=tdict[f]
+			else: # takes both bulk and non bulkies here
+				tdf.ix[tdf[tdf['TYPE']!=condit[f][1]].index,'desc']=tdict[f]
+				if tdict[f].find('fcc')!=-1:
+					tdf.ix[tdf[tdf['TYPE']==condit[f][1]].index,'desc']='bulk fcc'
+				else:
+					tdf.ix[tdf[tdf['TYPE']==condit[f][1]].index,'desc']='bulk bcc'
 		elif condit[f][0].find('CSP')!=-1:
 			tdf.ix[tdf[tdf['TYPE']>condit[f][1]].index,'desc']=tdict[f]
 			if tdict[f].find('fcc')!=-1:
@@ -514,6 +562,9 @@ def make_all_structures(se):
 	alld=dislocations(se,alld,descriptors,DOUT)
 	DOUT=make_grain_prototypes(se)
 	alld=grain_boundaries(se,alld,DOUT)
+	DOUT=tensile_prototype(se)
+	alld=add_tensile_dislocations(se,alld,DOUT)
+
 	alld.index = range(len(alld))	
 	#alld=alld.dropna()
 	alld=alld[alld['desc']!='Please Drop']
