@@ -46,8 +46,9 @@ from feature_structures import *
 from matplotlib import pyplot as plt
 from matplotlib.pyplot import cm 
 from sklearn.externals import joblib
+from sklearn.neighbors import KNeighborsClassifier
 
-load_from_prev=False
+load_from_prev=True
 need_seperate_clfs=False
 
 #grain boundaries -- for a spectrum of separation angles, we'll do a separate regression to find the grain-boundary angle after identifying the struct as a GB
@@ -62,7 +63,7 @@ class simulation_env:
      def __init__(self):
 	 self.sampling_rate = 0.001#how often we select for keeps
 	 self.num_comp = 5#number of PCA components that the bi components are reduced to
-	 self.sample_size=100000#size of samples when machine learning
+	 self.sample_size=10000#size of samples when machine learning
 	 self.thermal=10 #number of thermal perturbations for each config.
 	 self.lattice=3.597 #lattice size
 	 self.indicies=[[[1,1,1],[-1,1,0],[-1,-1,2]], [[0,1,0],[0,0,1],[1,0,0]]]#crystal orientations
@@ -187,19 +188,20 @@ from sklearn.ensemble import RandomForestClassifier
 def train_ML(clf,X,Y,vals=vals,trim=False):
 	if trim==True:
 		#get an even representation from each possible output
-		amt=min([np.where(np.array(Y)==x)[0].shape[0] for x in range(len(vals))])
+		amt=min([np.where(np.array(Y)==x)[0].shape[0] for x in range(len(np.unique(np.array(Y))))])
 		from random import shuffle
 		Xt=[]
 		Yt=[]
-		for r in range(len(vals)):
-			indtemp=np.where(np.array(Y)==r)[0]
+		for r in range(len(np.unique(np.array(Y)))):
+			indtemp=np.where(np.array(Y)==r)
 			if len(indtemp) < se.sample_size:
-				index_shuf=range(len(indtemp))
+				maxi=len(indtemp)
 			else:
-				index_shuf=range(se.sample_size)
-			shuffle(index_shuf)
-			Xt.append([X[indtemp[i]] for i in index_shuf])
-			Yt.append([Y[indtemp[i]] for i in index_shuf])
+				maxi=se.sample_size
+			s=range(len(indtemp))
+			shuffle(s)
+			Xt.append([X[indtemp[i]] for i in s[:maxi]])
+			Yt.append([Y[indtemp[i]] for i in s[:maxi]])
 		Xs=[item for sublist in Xt for item in sublist]
 		Ys=[item for sublist in Yt for item in sublist]
 	else:
@@ -207,7 +209,7 @@ def train_ML(clf,X,Y,vals=vals,trim=False):
 		Ys=Y
 	clf.fit(Xs,Ys)
 	print clf.score(Xs,Ys)
-	return clf
+	return clf,Xs,Ys
 
 #assign final feature and descriptors
 
@@ -228,10 +230,15 @@ if need_seperate_clfs==True:
 	for k in classdict.keys():
 		joblib.dump(clfdict[k], './pickled/'+classdict[k]+'.pkl') 
 else:
+	# should cross validate and train with equal cuts of each sample, even if that's tiny!
+	
+	clftotNN=KNeighborsClassifier(n_neighbors=5,verbose=True)
 	clftot=RandomForestClassifier(n_estimators=1000, min_samples_leaf=10, verbose=True)
 	X=fdf[fdf.columns[:55]].values[::100]
 	Y=fdf[fdf.columns[55]].values[::100]
-	clftot.fit(X,Y)
+	clftot,Xs,Ys=train_ML(clftot,X,Y,vals=vals)
+	clftotNN,Xs,Ys=train_ML(clftotNN,X,Y,vals=vals)
+	#clftot.fit(X,Y)
 	joblib.dump(clftot, './pickled/clftot.pkl')
 
 #allow the trees to be assigned according to each binary defect

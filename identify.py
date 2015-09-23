@@ -120,7 +120,7 @@ def nab_and_format_bispec(fn,clfdict,expected_struct,clffull,get_cats=False,need
 		out=[]
  		for p in probs:
 			# if the difference is less than 5%, and one option is a defect, take the defect!
-			mp = max(p)
+			mp = np.array(p).argmax()
 			'''			
 			if max(p) - second_largest(p) <= 0.05 and (np.array(p).argmax() == 9 or np.array(p).argmax() == 10): 
 				mp = (np.array(p)==second_largest(p)).argmax()
@@ -202,8 +202,8 @@ if __name__ == "__main__":
 	#clfdict=initialize_classification_env()
 	clfdict={}	
 	clftot=initialize_full_classifier()
-	#dat,output,trans,tdata,preds,cd=nab_and_format_bispec("keep_octahedralinterstitial_bcc4012",clfdict)
+	#dat,output,trans,tdata,preds,cd=nab_and_format_bispec("keep_tetrahedralinterstitial_bcc247",clfdict,'chips',clftot)
 	#dat,output=nab_and_format_bispec("dislocationbcc_disloc.lmp6538",get_cats=True)	
-	#make_output("keep_octahedralinterstitial_bcc4012",dat,output)
-	dat,output,trans,tdata,preds,cd=make_into_bispec('dump.Cu.Cu_225_10000',se.lattice,se,clfdict,clftot,frame=600,bounds='s p p')
+	#make_output("keep_tetrahedralinterstitial_bcc247",dat,output)
+	dat,output,trans,tdata,preds,cd=make_into_bispec('dump.bcc.atom',2.87,se,clfdict,clftot,frame=8200,bounds='p s s')
 
