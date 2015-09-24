@@ -4,7 +4,9 @@ from lammps import lammps
 import pandas as pd
 import itertools
 import subprocess
+from template_generation import template_gen
 from ovito_master import *
+import time
 
 def get_boxes(scale):
 	b=['x scale '+str(scale), ' y scale '+str(scale), ' z scale '+str(scale)]
@@ -16,27 +18,17 @@ def get_boxesf(scale,f):
 
 
 # the lammps file templates need to be able to dynamically assign the correct number of vb spots, so the the B can be changed from 8 to W/E.
+class Timer(object):
+    def __init__(self, name=None):
+        self.name = name
 
-def adjust_temp(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
+    def __enter__(self):
+        self.tstart = time.time()
 
-	return 'units metal\nboundary        '+str(bound)+'\nregion 		sim block -'+str(lx*3)+' '+str(lx*2)+' -'+str(ly*3)+' '+str(ly*2)+' -'+str(lz*3)+' '+str(lz*2)+'\n'+'create_box 1 sim\n'+ \
-		'lattice '+struct+' '+str(lat)+' origin 0 0 0 orient x '+str(xi[0])+' '+str(xi[1])+' '+str(xi[2])+' orient y '+ str(yi[0])+' '+str(yi[1])+' '+str(yi[2])+' orient z '+str(zi[0])+' '+str(zi[1])+' '+str(zi[2])+ '\n'+'create_atoms 1 box\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.04 0.04 0.04 '+str(random.randint(10,1000))+'\n'+\
-		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
-
-def adjust_temp_athermal(lat,lx,ly,lz,xi,yi,zi,bound,struct,output):
-
-	return 'units metal\nboundary        '+str(bound)+'\nregion 		sim block -'+str(lx*3)+' '+str(lx*2)+' -'+str(ly*3)+' '+str(ly*2)+' -'+str(lz*3)+' '+str(lz*2)+'\n'+'create_box 1 sim\n'+ \
-		'lattice '+struct+' '+str(lat)+' origin 0 0 0 orient x '+str(xi[0])+' '+str(xi[1])+' '+str(xi[2])+' orient y '+ str(yi[0])+' '+str(yi[1])+' '+str(yi[2])+' orient z '+str(zi[0])+' '+str(zi[1])+' '+str(zi[2])+ '\n'+'create_atoms 1 box\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
-		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
-
-def adjust_temp_read(lat,output,datname, athermal=False):
-	if athermal==False:
-		out='units metal\nboundary p p p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+ 'displace_atoms all random 0.04 0.04 0.04 '+str(random.randint(10,1000))+'\n'+\
-		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
-	else:
-		out='units metal\nboundary p p p\nread_data '+str(datname)+'\n'+'mass 1 1.0\n'+'pair_style lj/cut '+str(2*lat)+'\n'+\
-		'pair_coeff * * 1 1\nneighbor        0.5 bin\nneigh_modify    every 50 delay 0 check yes\ntimestep        0.001\nlog equib.out append\ncompute vb all sna/atom 1.0 0.99 8 '+str(lat)+' 1.0 diagonal 3\n'+'dump myDump all custom 1 '+output+' id type x y z c_vb[1] c_vb[2] c_vb[3] c_vb[4] c_vb[5] c_vb[6] c_vb[7] c_vb[8] c_vb[9] c_vb[10] c_vb[11] c_vb[12] c_vb[13] c_vb[14] c_vb[15] c_vb[16] c_vb[17] c_vb[18] c_vb[19] c_vb[20] c_vb[21] c_vb[22] c_vb[23] c_vb[24] c_vb[25] c_vb[26] c_vb[27] c_vb[28] c_vb[29] c_vb[30] c_vb[31] c_vb[32] c_vb[33] c_vb[34] c_vb[35] c_vb[36] c_vb[37] c_vb[38] c_vb[39] c_vb[40] c_vb[41] c_vb[42] c_vb[43] c_vb[44] c_vb[45] c_vb[46] c_vb[47] c_vb[48] c_vb[49] c_vb[50] c_vb[51] c_vb[52] c_vb[53] c_vb[54] c_vb[55]\n'
-	return out
+    def __exit__(self, type, value, traceback):
+        if self.name:
+            print '[%s]' % self.name,
+        print 'Elapsed: %s' % (time.time() - self.tstart)
 
 # we need to nab the bispec components for every defect type, then merge them all into one dataframe, then standardize the coefficients, then perform the PCA
 
@@ -51,7 +43,7 @@ def nab_bispec_train(infile):
 #need one of every surface type and of each structure -- then need to apply the 
 #prototype to EACH one of the systems
 
-def make_surface_prototypes(se,alld,dic):
+def make_surface_prototypes(se,alld,dic,lt):
 	DOUT={}
 	tdict={(se.structs[0],tuple(se.indicies[0][0])):'fcc_111',\
 			(se.structs[0],tuple(se.indicies[0][1])):'fcc_110',\
@@ -74,7 +66,7 @@ def make_surface_prototypes(se,alld,dic):
 						
 						fiz='tempstruct_'+str(counter)
 						counter+=1
-						template=adjust_temp_athermal(se.lattice,lx,ly,lz,i[0],i[1],i[2],bound,stru,fiz)
+						template=lt.adjust_temp_athermal(se.lattice,lx,ly,lz,i[0],i[1],i[2],bound,stru,fiz)
 
 						with open('temp.in', 'w') as f:
 								f.write(template)
@@ -101,7 +93,7 @@ def make_surface_prototypes(se,alld,dic):
 	print "\n\n\n			FINISHED SURFACE PROTOTYPES		\n\n\n"
 	return DOUT						
 
-def surfaces(se,alld,descriptors,dic,DOUT):
+def surfaces(se,alld,descriptors,dic,DOUT,lt):
 	
 	need_proto=False
 	#DOUT={}
@@ -126,7 +118,7 @@ def surfaces(se,alld,descriptors,dic,DOUT):
 								else:
 									fiz='temporaryfile'
 
-								template=adjust_temp(se.lattice,lx,ly,lz,i[0],i[1],i[2],bound,stru,fiz)
+								template=lt.adjust_temp(se.lattice,lx,ly,lz,i[0],i[1],i[2],bound,stru,fiz)
 		
 								with open('temp.in', 'w') as f:
 									f.write(template)
@@ -155,7 +147,7 @@ def surfaces(se,alld,descriptors,dic,DOUT):
 	return alld
 
 
-def make_vacancy_prototypes(se,alld,dic):
+def make_vacancy_prototypes(se,alld,dic,lt):
 	#dictionary of prototype features	
 	DOUT={}
 	
@@ -171,7 +163,7 @@ def make_vacancy_prototypes(se,alld,dic):
 				
 				fiz='tempstruct_'+str(counter)
 				counter+=1
-				template=adjust_temp_athermal(se.lattice,lx,ly,lz,i[0],i[1],i[2],'p p p',stru,fiz)
+				template=lt.adjust_temp_athermal(se.lattice,lx,ly,lz,i[0],i[1],i[2],'p p p',stru,fiz)
 
 				with open('temp.in', 'w') as f:
 						f.write(template)
@@ -201,7 +193,7 @@ def make_vacancy_prototypes(se,alld,dic):
 	print "\n\n\n			FINISHED VACANCY PROTOTYPES		\n\n\n"
 	return DOUT	
 
-def vacancies(se, alld, descriptors,DOUT):
+def vacancies(se, alld, descriptors,DOUT,lt):
 
 #loops to create all of the vacancies
 	for stru in se.structs:
@@ -219,7 +211,7 @@ def vacancies(se, alld, descriptors,DOUT):
 					else:
 						fiz='temporaryfile'
 
-					template=adjust_temp(se.lattice,lx,ly,lz,[1,0,0],[0,1,0],[0,0,1],'p p p',stru,fiz)
+					template=lt.adjust_temp(se.lattice,lx,ly,lz,[1,0,0],[0,1,0],[0,0,1],'p p p',stru,fiz)
 
 					with open('temp.in', 'w') as f:
 						f.write(template)
@@ -247,7 +239,7 @@ def vacancies(se, alld, descriptors,DOUT):
 	return alld
 
 
-def make_interstitial_prototypes(se,alld,dic):
+def make_interstitial_prototypes(se,alld,dic,lt):
 	#dictionary of prototype features	
 	DOUT={}
 	ot={0:'tetrahedral',1:'octahedral'}
@@ -268,7 +260,7 @@ def make_interstitial_prototypes(se,alld,dic):
 			
 			fiz='tempstruct_'+str(counter)
 			counter+=1
-			template=adjust_temp_athermal(se.lattice,lx,ly,lz,i[0],i[1],i[2],'p p p',stru,fiz)
+			template=lt.adjust_temp_athermal(se.lattice,lx,ly,lz,i[0],i[1],i[2],'p p p',stru,fiz)
 
 			with open('temp.in', 'w') as f:
 				f.write(template)
@@ -297,7 +289,7 @@ def make_interstitial_prototypes(se,alld,dic):
 	return DOUT
 
 
-def interstitials(se,alld,descriptors,DOUT):
+def interstitials(se,alld,descriptors,DOUT,lt):
 
 	ot={0:'tetrahedral',1:'octahedral'}
 	for stru in se.structs:
@@ -317,7 +309,7 @@ def interstitials(se,alld,descriptors,DOUT):
 						else:
 							fiz='temporaryfile'
 
-						template=adjust_temp(se.lattice,lx,ly,lz,[1,0,0],[0,1,0],[0,0,1],'p p p',stru,fiz)
+						template=lt.adjust_temp(se.lattice,lx,ly,lz,[1,0,0],[0,1,0],[0,0,1],'p p p',stru,fiz)
 
 						with open('temp.in', 'w') as f:
 							f.write(template)
@@ -369,7 +361,7 @@ def make_dislocations_prototypes(se):
 
 
 # make system calls to atomsk -- easy way to generate the inital dislocation stuctures, then strain and thermalize them such that they are still identified.
-def dislocations(se,alld,descriptors,DOUT):
+def dislocations(se,alld,descriptors,DOUT,lt):
 	#OK what types of defects, FCC full, partial, BCC full... strain and thermalize
 	for d in se.defect_names:
 		for s in se.scales:
@@ -386,7 +378,7 @@ def dislocations(se,alld,descriptors,DOUT):
 						else:
 							fiz='temporaryfile'
 
-						template=adjust_temp_read(se.lattice,fiz,d)
+						template=lt.adjust_temp_read(se.lattice,fiz,d)
 
 						with open('temp.in', 'w') as f:
 							f.write(template)
@@ -409,11 +401,11 @@ def dislocations(se,alld,descriptors,DOUT):
 	return alld
 
 
-def tensile_prototype(se):
+def tensile_prototype(se,lt):
 	DOUT={}
 	# we have 3 tensile tests right now
 	for x in range(1,4):
-		template=adjust_temp_read(se.lattice,'tensile_'+str(x)+'.struct','tensile_'+str(x)+'.out',athermal=True)
+		template=lt.adjust_temp_read(se.lattice,'tensile_'+str(x)+'.struct','tensile_'+str(x)+'.out',athermal=True)
 		with open('temp.in', 'w') as f:
 			f.write(template)
 			f.write('\nrun 0 post no\n')
@@ -430,11 +422,11 @@ def tensile_prototype(se):
 
 	return DOUT
 
-def add_tensile_dislocations(se,alld,DOUT):
+def add_tensile_dislocations(se,alld,DOUT,lt):
 	
 	for x in range(1,4):
 		#for t in range(se.thermal):
-		template=adjust_temp_read(se.lattice,'temporary.out','tensile_'+str(x)+'.out',athermal=True)
+		template=lt.adjust_temp_read(se.lattice,'temporary.out','tensile_'+str(x)+'.out',athermal=True)
 		with open('temp.in', 'w') as f:
 			f.write(template)
 			f.write('\nrun 0 post no\n')
@@ -451,7 +443,7 @@ def add_tensile_dislocations(se,alld,DOUT):
 	return alld
 
 
-def make_grain_prototypes(se):
+def make_grain_prototypes(se,lt):
 	#OK what types of defects, FCC full, partial, BCC full... strain and thermalize
 	DOUT={}
 	tdict={se.grain_names[0]:'fcc_GB',\
@@ -459,7 +451,7 @@ def make_grain_prototypes(se):
 	
 	for gn in se.grain_names:						
 			
-		template=adjust_temp_read(se.lattice,gn+'.struct',gn,athermal=True)
+		template=lt.adjust_temp_read(se.lattice,gn+'.struct',gn,athermal=True)
 		with open('temp.in', 'w') as f:
 			f.write(template)
 			f.write('\nrun 0 post no\n')
@@ -481,10 +473,10 @@ def make_grain_prototypes(se):
 
 
 
-def grain_boundaries(se,alld,DOUT):
+def grain_boundaries(se,alld,DOUT,lt):
 
 	for gn in se.grain_names:
-		template=adjust_temp_read(se.lattice,'temporary.out',gn)
+		template=lt.adjust_temp_read(se.lattice,'temporary.out',gn)
 		with open('temp.in', 'w') as f:
 			f.write(template)
 			f.write('\nrun 0 post no\n')
@@ -546,30 +538,41 @@ def initialize_dislocation_descriptors(f,tdict,condit):
 	return tdf
 
 
-def make_all_structures(se):
-
+def make_all_structures(se,thermal_diff,num_bispec):
+	
+	lmp_templates=template_gen(thermal_diff,num_bispec)
 	alld=pd.DataFrame()
 	dic={se.bounds[0]:2,se.bounds[1]:1,se.bounds[2]:0} #convert the different boundaries to an index
 	descriptors=[]
 	#Bi spectrum gathering pipeline
-	DOUT=make_surface_prototypes(se,alld,dic)
-	alld=surfaces(se,alld,descriptors,dic,DOUT)
-	DOUT=make_vacancy_prototypes(se,alld,dic)
-	alld=vacancies(se,alld,descriptors,DOUT)
-	DOUT=make_interstitial_prototypes(se,alld,dic)
-	alld=interstitials(se,alld,descriptors,DOUT)
+	DOUT=make_surface_prototypes(se,alld,dic,lmp_templates)
+	alld=surfaces(se,alld,descriptors,dic,DOUT,lmp_templates)
+	DOUT=make_vacancy_prototypes(se,alld,dic,lmp_templates)
+	alld=vacancies(se,alld,descriptors,DOUT,lmp_templates)
+	DOUT=make_interstitial_prototypes(se,alld,dic,lmp_templates)
+	alld=interstitials(se,alld,descriptors,DOUT,lmp_templates)
 	DOUT=make_dislocations_prototypes(se)
-	alld=dislocations(se,alld,descriptors,DOUT)
-	DOUT=make_grain_prototypes(se)
-	alld=grain_boundaries(se,alld,DOUT)
-	DOUT=tensile_prototype(se)
-	alld=add_tensile_dislocations(se,alld,DOUT)
+	alld=dislocations(se,alld,descriptors,DOUT,lmp_templates)
+	DOUT=make_grain_prototypes(se,lmp_templates)
+	alld=grain_boundaries(se,alld,DOUT,lmp_templates)
+	DOUT=tensile_prototype(se,lmp_templates)
+	alld=add_tensile_dislocations(se,alld,DOUT,lmp_templates)
 
 	alld.index = range(len(alld))	
 	#alld=alld.dropna()
 	alld=alld[alld['desc']!='Please Drop']
 	
+	get_timed_performance(se,thermal_diff,num_bispec)
+
 	return alld,descriptors,DOUT
+
+
+def get_timed_performance(se,thermal_diff,num_bispec):
+	
+	lmp_templates=template_gen(thermal_diff,num_bispec)
+	with Timer('Grain Generations:'):
+		DOUT=make_grain_prototypes(se,lmp_templates)
+pass
 
 
 if __name__=="__main__":
@@ -596,6 +599,6 @@ if __name__=="__main__":
 
 	se=simulation_env()
 
-	alld,descriptors,DOUT=make_all_structures(se)
-
+	alld,descriptors,DOUT=make_all_structures(se,0.01,2)
+	
 

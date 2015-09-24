@@ -47,9 +47,27 @@ from matplotlib import pyplot as plt
 from matplotlib.pyplot import cm 
 from sklearn.externals import joblib
 from sklearn.neighbors import KNeighborsClassifier
+import matplotlib as mpl
+from matplotlib.ticker import MaxNLocator
+mpl.rcdefaults()
+mpl.rcParams['font.family'] = 'serif'
+mpl.rcParams['font.serif'] = ['Times New Roman']
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['axes.linewidth'] = 2 # set the value globally
+mpl.rcParams['xtick.labelsize'] = 'x-large'
+mpl.rcParams['ytick.labelsize'] = 'x-large'
+mpl.rcParams['xtick.major.size'] = 10
+mpl.rcParams['xtick.major.width'] = 2
+mpl.rcParams['ytick.major.size'] = 10
+mpl.rcParams['ytick.major.width'] = 2
+mpl.rcParams['xtick.minor.size'] = 5
+mpl.rcParams['xtick.minor.width'] = 1
+mpl.rcParams['ytick.minor.size'] = 5
+mpl.rcParams['ytick.minor.width'] = 1
 
-load_from_prev=True
+load_from_prev=False
 need_seperate_clfs=False
+clf_num=3
 
 #grain boundaries -- for a spectrum of separation angles, we'll do a separate regression to find the grain-boundary angle after identifying the struct as a GB
 
@@ -83,15 +101,16 @@ se=simulation_env()
 
 
 # Use PCA to compress the representation of the bispectrum
-def consolidate_bispec(alld,pca,rclassdict):
+def consolidate_bispec(fdf,pca,rclassdict):
 	# standardize the data so the larger magnitude components don't dominate the PCA
 	# scaler=preprocessing.StandardScaler().fit()
-	for x in alld.columns[5:-1]:
-		alld[x] = alld[x].map(norm(alld[x].std(),alld[x].mean()))
+	for x in fdf.columns[5:-1]:
+		fdf[x] = fdf[x].map(norm(fdf[x].std(),fdf[x].mean()))
 	# get N principal components for the defects!
-	lookPCA= pca.fit(alld[alld.columns[5:-1]].values)
-	trans_values=pca.transform(alld[alld.columns[5:-1]].values)	
-	trans_values=[np.append(t,rclassdict[alld['desc'].values[x]]) for x,t in zip(range(len(alld)),trans_values)]
+	lookPCA= pca.fit(fdf[fdf.columns[5:-1]].values)
+	trans_values=pca.transform(fdf[fdf.columns[5:-1]].values)	
+	trans_values=[np.append(t,fdf[bispec_dict[8]].values[x]) for x,t in zip(range(len(fdf)),trans_values)]
+	
 	return trans_values,pca
 
 #pca free version, aka all bispectrum coefficients are used
@@ -107,6 +126,59 @@ def consolidate_data(alld,pca,rclassdict):
 	trans_values=[np.append(t,rclassdict[alld['desc'].values[x]]) for x,t in zip(range(len(alld)),trans_values)]
 	return trans_values,pca
 
+
+from sklearn.ensemble import RandomForestClassifier
+
+
+def train_ML(clf,X,Y,trim=False):
+	if trim==True:
+		#get an even representation from each possible output
+		amt=min([np.where(np.array(Y)==x)[0].shape[0] for x in range(len(np.unique(np.array(Y))))])
+		from random import shuffle
+		Xt=[]
+		Yt=[]
+		for r in range(len(np.unique(np.array(Y)))):
+			indtemp=np.where(np.array(Y)==r)
+			if len(indtemp[0]) < se.sample_size:
+				maxi=len(indtemp[0])
+			else:
+				maxi=se.sample_size
+			s=range(len(indtemp[0]))
+			shuffle(s)
+			Xt.append([X[indtemp[0][i]] for i in s[:maxi]])
+			Yt.append([Y[indtemp[0][i]] for i in s[:maxi]])
+		Xs=[item for sublist in Xt for item in sublist]
+		Ys=[item for sublist in Yt for item in sublist]
+	else:
+		Xs=X
+		Ys=Y
+	clf.fit(Xs,Ys)
+	print clf.score(Xs,Ys)
+	return clf,Xs,Ys
+
+def plot_def(pdf,xlo,xhi,ylo,yhi,classdict):
+		plt.cla()
+		plt.clf()
+		color=cm.rainbow(np.linspace(0,1.0,5))
+		markers = ['.','*','s','d','p']
+		params=list(itertools.product(*[color,markers]))
+		fig, ax = plt.subplots()
+		ax.minorticks_on()
+		for ck,m in zip(classdict.keys(),params[:len(classdict.keys())]):
+			if classdict[ck].find('bulk')!=-1:
+				if classdict[ck].find('fcc')!=-1:
+					lilc=color[0]
+				else:
+					lilc=color[4]
+				plt.scatter(pdf[pdf[2]==ck][0].values[::1000],pdf[pdf[2]==ck][1].values[::1000],marker='o',c=lilc,s=50,label=classdict[ck].translate(None,''.join(['_'])))
+			elif classdict[ck].find('1')!=-1:
+				#c=next(color)
+				plt.scatter(pdf[pdf[2]==ck][0].values[:1000],pdf[pdf[2]==ck][1].values[:1000],marker=m[1],c=m[0],s=50,label=classdict[ck].translate(None,''.join(['_'])))
+		plt.xlabel('PC1',fontsize=24)
+		plt.ylabel('PC2', fontsize=24)
+		plt.axis([xlo,xhi,ylo,yhi], fontsize=24)	
+		plt.legend(bbox_to_anchor=(0.9,-0.15),prop={'size':12},ncol=4)
+		plt.savefig('plotted.eps', edgecolor='none',bbox_inches='tight')
 
 
 def dump_stats(alld):
@@ -141,12 +213,13 @@ def remove_surface_atoms_wZ (df):
 if load_from_prev==False:
 	
 	# run the data through the pipeline
-	alld,descriptors,DOUT=make_all_structures(se)
-	pickle.dump(alld, open( "alld.p", "wb" ) )
+	alld,descriptors,DOUT=make_all_structures(se,0.04,clf_num)
+	pickle.dump(alld, open( "alld"+str(clf_num)+".p", "wb" ) )
 	# get pca object to save for later
 	pca = PCA(n_components=se.num_comp)
 	# dump the stats for each column, so they can be re-mapped in future simulations
-	dump_stats(alld)
+	# NEED TO TURN THIS BACK ON TO WORK!!!!
+	#dump_stats(alld)
 
 	vals=list(np.unique(alld['desc'].values))
 	keys=range(len(vals))
@@ -155,20 +228,15 @@ if load_from_prev==False:
 	# no more PCA is performed.
 	newv,pca=consolidate_data(alld,pca,rclassdict)
 	fdf=pd.DataFrame(newv)
-	pickle.dump(fdf, open( "fdf.p", "wb"))
-	pickle.dump(newv, open( "newv.p", "wb"))
-	pickle.dump(pca, open( "pca.p", "wb"))
+	pickle.dump(fdf, open( "fdf"+str(clf_num)+".p", "wb"))
+	pickle.dump(pca, open( "pca"+str(clf_num)+".p", "wb"))
 
 else:
-	fdf=pickle.load(open("fdf.p","rb"))
-	alld=pickle.load(open("alld.p","rb"))
-	pca=pickle.load(open("pca.p","rb"))
-	newv=pickle.load(open("newv.p","rb"))
+	fdf=pickle.load(open("fdf"+str(clf_num)+".p","rb"))
+	alld=pickle.load(open("alld"+str(clf_num)+".p","rb"))
+	pca=pickle.load(open("pca"+str(clf_num)+".p","rb"))
 
 #turn the transformed bispec components into a df object
-
-newdf=pd.DataFrame(newv)
-
 #now we make a dictionary of classifiers
 
 vals=list(np.unique(alld['desc'].values))
@@ -181,35 +249,6 @@ rclassdict=dict(zip(vals,keys))
 
 
 pickle.dump(classdict, open( "classdict.p", "wb"))
-
-from sklearn.ensemble import RandomForestClassifier
-
-
-def train_ML(clf,X,Y,vals=vals,trim=False):
-	if trim==True:
-		#get an even representation from each possible output
-		amt=min([np.where(np.array(Y)==x)[0].shape[0] for x in range(len(np.unique(np.array(Y))))])
-		from random import shuffle
-		Xt=[]
-		Yt=[]
-		for r in range(len(np.unique(np.array(Y)))):
-			indtemp=np.where(np.array(Y)==r)
-			if len(indtemp) < se.sample_size:
-				maxi=len(indtemp)
-			else:
-				maxi=se.sample_size
-			s=range(len(indtemp))
-			shuffle(s)
-			Xt.append([X[indtemp[i]] for i in s[:maxi]])
-			Yt.append([Y[indtemp[i]] for i in s[:maxi]])
-		Xs=[item for sublist in Xt for item in sublist]
-		Ys=[item for sublist in Yt for item in sublist]
-	else:
-		Xs=X
-		Ys=Y
-	clf.fit(Xs,Ys)
-	print clf.score(Xs,Ys)
-	return clf,Xs,Ys
 
 #assign final feature and descriptors
 
@@ -230,49 +269,19 @@ if need_seperate_clfs==True:
 	for k in classdict.keys():
 		joblib.dump(clfdict[k], './pickled/'+classdict[k]+'.pkl') 
 else:
-	# should cross validate and train with equal cuts of each sample, even if that's tiny!
-	
-	clftotNN=KNeighborsClassifier(n_neighbors=5,verbose=True)
+	# should cross validate and train
+	bispec_dict={1:2,2:5,3:8,4:14,5:20,6:30,7:40,8:55} #correlate the number of bispec comps. with max #
+	clftotNN=KNeighborsClassifier(n_neighbors=5)
 	clftot=RandomForestClassifier(n_estimators=1000, min_samples_leaf=10, verbose=True)
-	X=fdf[fdf.columns[:55]].values[::100]
-	Y=fdf[fdf.columns[55]].values[::100]
-	clftot,Xs,Ys=train_ML(clftot,X,Y,vals=vals)
-	clftotNN,Xs,Ys=train_ML(clftotNN,X,Y,vals=vals)
-	#clftot.fit(X,Y)
-	joblib.dump(clftot, './pickled/clftot.pkl')
+	X=fdf[fdf.columns[:bispec_dict[clf_num]]].values#[::100]
+	Y=fdf[fdf.columns[bispec_dict[clf_num]]].values#[::100]
 
-#allow the trees to be assigned according to each binary defect
-#X=newdf[newdf.columns[:se.num_comp]].values
-#Y=newdf[se.num_comp].values
+	#trim trains the samples with an even number from each sample (where possible)
+	clftot,Xs,Ys=train_ML(clftot,X,Y,trim=True)
+	clftotNN,Xs,Ys=train_ML(clftotNN,X,Y,trim=True)
+	joblib.dump(clftot, './pickled/clftot'+str(clf_num)+'.pkl')
+	joblib.dump(clftotNN, './pickled/clftotNN'+str(clf_num)+'.pkl')
 
 
-
-
-#for if pdf is made with only 2 PCA's
-
-
-
-#joblib.dump(clf, './pickled/rf.pkl') 
-
-
-def plot_def(xlo,xhi,ylo,yhi):
-		plt.cla()
-		plt.clf()
-		color=cm.rainbow(np.linspace(0,1.0,5))
-		markers = ['.','*','s','d','p']
-		params=list(itertools.product(*[color,markers]))
-		for ck,m in zip(classdict.keys(),params[:len(classdict.keys())]):
-			if classdict[ck].find('bulk')!=-1:
-				if classdict[ck].find('fcc')!=-1:
-					lilc=color[0]
-				else:
-					lilc=color[4]
-				plt.scatter(pdf[pdf[2]==ck][0].values[::90],pdf[pdf[2]==ck][1].values[::90],marker='o',c=lilc,s=130,label=classdict[ck])
-			#c=next(color)
-			#else:
-				#plt.scatter(pdf[pdf[2]==ck][0].values[:1000],pdf[pdf[2]==ck][1].values[:1000],marker=m[1],c=m[0],s=100,label=classdict[ck])
-		plt.axis([xlo,xhi,ylo,yhi], fontsize=24)	
-		plt.legend(bbox_to_anchor=(1.2,1.0),prop={'size':16})
-		plt.show()
 
 
