@@ -141,29 +141,37 @@ def get_boxesf(scale,f):
 	b=['x scale '+str(scale*f), ' y scale '+str(scale*f), ' z scale '+str(scale*f)]
 	return str(b[0])+' '+str(b[1])+' '+str(b[2])
 
-def make_into_bispec(fn,latt,se,clfdict,clf,expected_struct='fcc',frame=0,bounds='p p p'):
+def make_into_bispec(fn,latt,se,clfdict,clf,expected_struct='fcc',frame=0,bounds='p p p', multiframe=False, stendframe=[0,0],outfilename='output'):
 #turns a lammps dump into bispec components
 # we convert everything to Cu lattice parameter scaling for now
-	b=[8.0960598,71.3280029,0.0,22.0,-51.1679993,57.1920013]
-	template=get_former_dump(se.lattice,'temporaryfile.out',fn,frame,b,bounds) 
-	with open('temp.in', 'w') as f:
-		f.write(template)
-		f.write('\nchange_box all '+get_boxesf(1.0,se.lattice/latt)+' boundary '+bounds+' remap units box\n')
-		f.write('\nrun 0 post no\n')
+	for x in range(stendframe[0],stendframe[1],100):
+		if multiframe==False:
+			x=frame
+		b=[8.0960598,71.3280029,0.0,22.0,-51.1679993,57.1920013]
+		template=get_former_dump(se.lattice,'temporaryfile.out',fn,x,b,bounds) 
+		with open('temp.in', 'w') as f:
+			f.write(template)
+			f.write('\nchange_box all '+get_boxesf(1.0,se.lattice/latt)+' boundary '+bounds+' remap units box\n')
+			f.write('\nrun 0 post no\n')
 	
-	lmp=lammps()						
-	lmp.file('temp.in')
-	lmp.close()
-	dat,output,trans,tdata,preds,cd=nab_and_format_bispec('temporaryfile.out',clfdict,expected_struct,clf)
-	make_output("temporaryfile.out",dat,output)
+		lmp=lammps()						
+		lmp.file('temp.in')
+		lmp.close()
+		dat,output,trans,tdata,preds,cd=nab_and_format_bispec('temporaryfile.out',clfdict,expected_struct,clf)
+		make_output("temporaryfile.out",dat,output,outfilename,append=multiframe)
 	return dat,output,trans,tdata,preds,cd
 
-def make_output(fn,df,out):
+def make_output(fn,df,out,outfilename,append = False):
 
 	with open(fn) as myfile:
 	    head = [next(myfile) for x in xrange(8)]
+	
+	if append==False:
+		to_do='w'
+	else:
+		to_do='a'
 
-	with open('output', 'w') as f:
+	with open(outfilename, to_do) as f:
 		for h in head:    
 			f.write(h) 
 		f.write('ITEM: ATOMS id type x y z ') 
@@ -198,12 +206,12 @@ if __name__ == "__main__":
 		# is the description and the [1] spot is the value needed
 
 	se=simulation_env()
-
+	classdict=pickle.load(open("classdict.p","rb"))
 	#clfdict=initialize_classification_env()
 	clfdict={}	
 	clftot=initialize_full_classifier()
-	#dat,output,trans,tdata,preds,cd=nab_and_format_bispec("keep_tetrahedralinterstitial_bcc247",clfdict,'chips',clftot)
+	#dat,output,trans,tdata,preds,cd=nab_and_format_bispec("dislocationfccfull.lmp1152",clfdict,'chips',clftot)
 	#dat,output=nab_and_format_bispec("dislocationbcc_disloc.lmp6538",get_cats=True)	
-	#make_output("keep_tetrahedralinterstitial_bcc247",dat,output)
-	dat,output,trans,tdata,preds,cd=make_into_bispec('dump.bcc.atom',2.87,se,clfdict,clftot,frame=8200,bounds='p s s')
-
+	#make_output("dislocationfccfull.lmp1152",dat,output)
+	dat,output,trans,tdata,preds,cd=make_into_bispec('dump.bcc.600.atom',2.87,se,clfdict,clftot,frame=0,bounds='p s s',multiframe=True,stendframe=[0,20000],outfilename='600K_bcc')
+	#dat,output,trans,tdata,preds,cd=make_into_bispec("dislocationbcc_disloc.lmp7547",se.lattice,se,clfdict,clftot,frame=0,bounds='s s p')

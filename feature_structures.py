@@ -579,7 +579,7 @@ if __name__=="__main__":
 
 	class simulation_env:
 	     def __init__(self):
-		 self.sampling_rate = 0.001#how often we select for keeps
+		 self.sampling_rate = 0.000001#how often we select for keeps
 		 self.num_comp = 5#number of PCA components that the bi components are reduced to
 		 self.sample_size=100000#size of samples when machine learning
 		 self.thermal=10 #number of thermal perturbations for each config.

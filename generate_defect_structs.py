@@ -47,7 +47,9 @@ from matplotlib import pyplot as plt
 from matplotlib.pyplot import cm 
 from sklearn.externals import joblib
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
 import matplotlib as mpl
+from random import shuffle
 from matplotlib.ticker import MaxNLocator
 mpl.rcdefaults()
 mpl.rcParams['font.family'] = 'serif'
@@ -67,7 +69,7 @@ mpl.rcParams['ytick.minor.width'] = 1
 
 load_from_prev=False
 need_seperate_clfs=False
-clf_num=3
+clf_num=1
 
 #grain boundaries -- for a spectrum of separation angles, we'll do a separate regression to find the grain-boundary angle after identifying the struct as a GB
 
@@ -79,7 +81,7 @@ def norm (s, m) : return lambda x : (x - m) / s
 
 class simulation_env:
      def __init__(self):
-	 self.sampling_rate = 0.001#how often we select for keeps
+	 self.sampling_rate = 0.0000001#how often we select for keeps
 	 self.num_comp = 5#number of PCA components that the bi components are reduced to
 	 self.sample_size=10000#size of samples when machine learning
 	 self.thermal=10 #number of thermal perturbations for each config.
@@ -130,31 +132,50 @@ def consolidate_data(alld,pca,rclassdict):
 from sklearn.ensemble import RandomForestClassifier
 
 
-def train_ML(clf,X,Y,trim=False):
+def train_ML(clf,X,Y,trim=False,get_test_set=False,need_fit=True):
+	
+	train_set_size=se.sample_size
+
 	if trim==True:
 		#get an even representation from each possible output
 		amt=min([np.where(np.array(Y)==x)[0].shape[0] for x in range(len(np.unique(np.array(Y))))])
-		from random import shuffle
+		print str(amt) + ' max number of samples'
+		if get_test_set: train_set_size=int(amt*0.75)
+
 		Xt=[]
 		Yt=[]
+		Xv=[]
+		Yv=[]
+
 		for r in range(len(np.unique(np.array(Y)))):
 			indtemp=np.where(np.array(Y)==r)
-			if len(indtemp[0]) < se.sample_size:
+			if len(indtemp[0]) < train_set_size:
 				maxi=len(indtemp[0])
 			else:
-				maxi=se.sample_size
+				maxi=train_set_size
 			s=range(len(indtemp[0]))
 			shuffle(s)
 			Xt.append([X[indtemp[0][i]] for i in s[:maxi]])
 			Yt.append([Y[indtemp[0][i]] for i in s[:maxi]])
+			if get_test_set:
+				Xv.append([X[indtemp[0][i]] for i in s[maxi:amt]])
+				Yv.append([Y[indtemp[0][i]] for i in s[maxi:amt]])
 		Xs=[item for sublist in Xt for item in sublist]
 		Ys=[item for sublist in Yt for item in sublist]
+		if get_test_set:
+			Xv=[item for sublist in Xv for item in sublist]
+			Yv=[item for sublist in Yv for item in sublist]
 	else:
 		Xs=X
 		Ys=Y
-	clf.fit(Xs,Ys)
-	print clf.score(Xs,Ys)
-	return clf,Xs,Ys
+	if need_fit: clf.fit(Xs,Ys)
+	sc=clf.score(Xs,Ys)
+	print sc
+	if get_test_set:	
+		AS=accuracy_score(Yv,clf.predict(Xv),normalize=False)
+	else:
+		AS=[]
+	return clf,Xs,Ys,sc,Xv,Yv,AS
 
 def plot_def(pdf,xlo,xhi,ylo,yhi,classdict):
 		plt.cla()
@@ -209,7 +230,7 @@ def remove_surface_atoms_wZ (df):
 	return ind
 
 #All we need to give are iterators and post boxes
-
+'''
 if load_from_prev==False:
 	
 	# run the data through the pipeline
@@ -232,6 +253,7 @@ if load_from_prev==False:
 	pickle.dump(pca, open( "pca"+str(clf_num)+".p", "wb"))
 
 else:
+
 	fdf=pickle.load(open("fdf"+str(clf_num)+".p","rb"))
 	alld=pickle.load(open("alld"+str(clf_num)+".p","rb"))
 	pca=pickle.load(open("pca"+str(clf_num)+".p","rb"))
@@ -249,9 +271,9 @@ rclassdict=dict(zip(vals,keys))
 
 
 pickle.dump(classdict, open( "classdict.p", "wb"))
-
+'''
 #assign final feature and descriptors
-
+'''
 if need_seperate_clfs==True:
 	clf_list=[RandomForestClassifier(n_estimators=1000, min_samples_leaf=10, verbose=True) for x in range(len(classdict.keys()))]
 	clfdict={}
@@ -277,10 +299,61 @@ else:
 	Y=fdf[fdf.columns[bispec_dict[clf_num]]].values#[::100]
 
 	#trim trains the samples with an even number from each sample (where possible)
-	clftot,Xs,Ys=train_ML(clftot,X,Y,trim=True)
-	clftotNN,Xs,Ys=train_ML(clftotNN,X,Y,trim=True)
+	clftot,Xs,Ys,sc,Xv,Yv,AS=train_ML(clftot,X,Y,trim=True)
+	clftotNN,Xs,Ys,sc,Xv,Yv,AS=train_ML(clftotNN,X,Y,trim=True)
 	joblib.dump(clftot, './pickled/clftot'+str(clf_num)+'.pkl')
 	joblib.dump(clftotNN, './pickled/clftotNN'+str(clf_num)+'.pkl')
+'''
+
+def plot_performance(max2j):
+	fig, ax1 = plt.subplots()
+	timing={1: 25.7669358253,2: 30.2913908958,3: 36.9177210331,4:48.7331619263,5: 65.2416930199,6: 95.2279620171,7: 137.776952982,8: 206.779714108}
+	NNperf={8: 0.994687738005,7: 0.992707539985,6: 0.990936785986,5: 0.984799441483,4: 0.967485402386,3: 0.939610307185,2: 0.90834602691,1: 0.764229499}
+	RFperf={1: 0.770938055344,2: 0.924682660574,3: 0.955185326225,4: 0.978585935517,5: 0.989902259457,6: 0.99487814166,7: 0.995760345265,8: 0.996566387408}
+	ax1.plot(range(max2j),NNperf.values(),label='Nearest Neighbor')
+	ax1.plot(range(max2j),RFperf.values(),label='Random Forest')
+	ax1.legend(bbox_to_anchor=(1.0,0.8),prop={'size':12})
+	ax1.set_xlabel('Max $2j$ value')
+	ax1.set_ylabel('Fit Score')
+	ax2 = ax1.twinx()
+	ax2.plot(range(max2j),1-np.array(timing.values())/max(timing.values()),'--')
+	ax2.set_ylabel('$1 - t/t_{max}$'+'(- -)')
+	plt.savefig('performance.eps')
+	pass
+	
+
+def make_variance_bias_data(max2j, NNmax, numsamples):
+	
+	testerror={}
+	trainingerror={}	
+	bispec_dict={1:2,2:5,3:8,4:14,5:20,6:30,7:40,8:55} #correlate the number of bispec comps. with max #
+	
+	for x in range(1,max2j+1):
+		print '\n2j value ' + str(x)
+		fdf=pickle.load(open("fdf"+str(x)+".p","rb"))
+		X=fdf[fdf.columns[:bispec_dict[x]]].values
+		Y=fdf[fdf.columns[bispec_dict[x]]].values
+		testerror[x]=[]
+		trainingerror[x]=[]
+		# look at total number of NN used
+		for NN in range(1,NNmax+1,2):
+			print '\n For '+str(NN)+' nearest neighbors'
+			temptest=[]
+			temptrain=[]
+			for nsamp in range(numsamples):		
+				#clftotNN=KNeighborsClassifier(n_neighbors=NN)
+				clftotNN=RandomForestClassifier(n_estimators=100, min_samples_leaf=NN)	
+				clftotNN,Xs,Ys,sc,Xv,Yv,AS=train_ML(clftotNN,X,Y,trim=True,get_test_set=True,need_fit=True)
+				temptest.append(AS)
+				temptrain.append(sc)
+			testerror[x].append(temptest)
+			trainingerror[x].append(temptrain)
+	return testerror,trainingerror
+
+
+
+TE,TRE=make_variance_bias_data(5,20,5)
+
 
 
 
