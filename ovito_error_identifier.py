@@ -6,9 +6,9 @@ from ovito.data import CutoffNeighborFinder
 
 
 node = None
-cutoff = 4.0
+cutoff = 6.0
 stylename='Structure Type'
-num_style=3
+num_style=1
 #stylename='vid'
 #num_style=9
 
@@ -21,10 +21,8 @@ for file in sys.argv[1:]:
         node = import_file(file,multiple_frames=True)
         print(node.source.num_frames)
         # Insert a modifier into the pipeline.
-        csp = CentroSymmetryModifier()
         cna = CommonNeighborAnalysisModifier(adaptive_mode=True)
         node.modifiers.append(cna)
-        node.modifiers.append(csp)
     else:
         continue	
         # To load subsequent files, call the load() function of the FileSource.

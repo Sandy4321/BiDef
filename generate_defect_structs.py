@@ -158,8 +158,8 @@ def train_ML(clf,X,Y,trim=False,get_test_set=False,need_fit=True):
 			Xt.append([X[indtemp[0][i]] for i in s[:maxi]])
 			Yt.append([Y[indtemp[0][i]] for i in s[:maxi]])
 			if get_test_set:
-				Xv.append([X[indtemp[0][i]] for i in s[maxi:amt]])
-				Yv.append([Y[indtemp[0][i]] for i in s[maxi:amt]])
+				Xv.append([X[indtemp[0][i]] for i in s[maxi:se.sample_size]])
+				Yv.append([Y[indtemp[0][i]] for i in s[maxi:se.sample_size]])
 		Xs=[item for sublist in Xt for item in sublist]
 		Ys=[item for sublist in Yt for item in sublist]
 		if get_test_set:
@@ -172,7 +172,8 @@ def train_ML(clf,X,Y,trim=False,get_test_set=False,need_fit=True):
 	sc=clf.score(Xs,Ys)
 	print sc
 	if get_test_set:	
-		AS=accuracy_score(Yv,clf.predict(Xv),normalize=False)
+		AS=accuracy_score(Yv,clf.predict(Xv))
+		print AS
 	else:
 		AS=[]
 	return clf,Xs,Ys,sc,Xv,Yv,AS
@@ -310,13 +311,13 @@ def plot_performance(max2j):
 	timing={1: 25.7669358253,2: 30.2913908958,3: 36.9177210331,4:48.7331619263,5: 65.2416930199,6: 95.2279620171,7: 137.776952982,8: 206.779714108}
 	NNperf={8: 0.994687738005,7: 0.992707539985,6: 0.990936785986,5: 0.984799441483,4: 0.967485402386,3: 0.939610307185,2: 0.90834602691,1: 0.764229499}
 	RFperf={1: 0.770938055344,2: 0.924682660574,3: 0.955185326225,4: 0.978585935517,5: 0.989902259457,6: 0.99487814166,7: 0.995760345265,8: 0.996566387408}
-	ax1.plot(range(max2j),NNperf.values(),label='Nearest Neighbor')
-	ax1.plot(range(max2j),RFperf.values(),label='Random Forest')
+	ax1.plot(range(1,max2j+1),NNperf.values(),label='Nearest Neighbor')
+	ax1.plot(range(1,max2j+1),RFperf.values(),label='Random Forest')
 	ax1.legend(bbox_to_anchor=(1.0,0.8),prop={'size':12})
 	ax1.set_xlabel('Max $2j$ value')
 	ax1.set_ylabel('Fit Score')
 	ax2 = ax1.twinx()
-	ax2.plot(range(max2j),1-np.array(timing.values())/max(timing.values()),'--')
+	ax2.plot(range(1,max2j+1),1-np.array(timing.values())/max(timing.values()),'--')
 	ax2.set_ylabel('$1 - t/t_{max}$'+'(- -)')
 	plt.savefig('performance.eps')
 	pass
@@ -352,9 +353,27 @@ def make_variance_bias_data(max2j, NNmax, numsamples):
 
 
 
-TE,TRE=make_variance_bias_data(5,20,5)
+#TE,TRE=make_variance_bias_data(5,20,5)
 
+#pickle.dump(TRE, open( "TRERF.p", "wb"))
+#pickle.dump(TE, open( "TERF.p", "wb"))
 
+#TRE=pickle.load(open("TRERF.p","rb"))
+#TERF=pickle.load(open("TERF.p","rb"))
 
+def plot_dat_variance(TE,TRE):
+	fig, ax = plt.subplots()
+	ax.minorticks_on()
+	color=cm.rainbow(np.linspace(0,1.0,5))
+	for x in TE:
+		plt.plot(range(1,21,2),[np.array(TE[x][i]).mean() for i in range(len(TE[x]))],linewidth=3,c=color[x-1],label='$2j='+str(x)+'$'+' test')
+		plt.plot(range(1,21,2),[np.array(TRE[x][i]).mean() for i in range(len(TRE[x]))],'--',linewidth=3,c=color[x-1],label='$2j='+str(x)+'$'+' training')	
+	
+	plt.xlabel('Minimum Samples Per Leaf',fontsize=24)
+	plt.ylabel('Prediction Accuracy', fontsize=24)
+	plt.axis([1,19,0.6,1.0], fontsize=24)	
+	plt.legend(bbox_to_anchor=(1.1,-0.11),prop={'size':18},ncol=3)	
+	#plt.legend()
+	plt.savefig('Variance.eps', edgecolor='none',bbox_inches='tight')
 
 

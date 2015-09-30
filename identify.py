@@ -9,6 +9,7 @@ from sklearn.externals import joblib
 from sklearn.cluster import KMeans
 from sklearn import svm
 import numpy as np
+import sys
 
 def norm (s, m) : return lambda x : (x - m) / s
 
@@ -144,7 +145,10 @@ def get_boxesf(scale,f):
 def make_into_bispec(fn,latt,se,clfdict,clf,expected_struct='fcc',frame=0,bounds='p p p', multiframe=False, stendframe=[0,0],outfilename='output'):
 #turns a lammps dump into bispec components
 # we convert everything to Cu lattice parameter scaling for now
-	for x in range(stendframe[0],stendframe[1],100):
+	if stendframe[1]==0: final=1
+	else: final=stendframe[1]
+
+	for x in range(stendframe[0],final,100):
 		if multiframe==False:
 			x=frame
 		b=[8.0960598,71.3280029,0.0,22.0,-51.1679993,57.1920013]
@@ -213,5 +217,5 @@ if __name__ == "__main__":
 	#dat,output,trans,tdata,preds,cd=nab_and_format_bispec("dislocationfccfull.lmp1152",clfdict,'chips',clftot)
 	#dat,output=nab_and_format_bispec("dislocationbcc_disloc.lmp6538",get_cats=True)	
 	#make_output("dislocationfccfull.lmp1152",dat,output)
-	dat,output,trans,tdata,preds,cd=make_into_bispec('dump.bcc.600.atom',2.87,se,clfdict,clftot,frame=0,bounds='p s s',multiframe=True,stendframe=[0,20000],outfilename='600K_bcc')
+	dat,output,trans,tdata,preds,cd=make_into_bispec(str(sys.argv[1]),se.lattice,se,clfdict,clftot,frame=0,bounds='p s s',multiframe=True, stendframe=[0,20000],outfilename=str(sys.argv[2]))
 	#dat,output,trans,tdata,preds,cd=make_into_bispec("dislocationbcc_disloc.lmp7547",se.lattice,se,clfdict,clftot,frame=0,bounds='s s p')
