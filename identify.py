@@ -217,5 +217,5 @@ if __name__ == "__main__":
 	#dat,output,trans,tdata,preds,cd=nab_and_format_bispec("dislocationfccfull.lmp1152",clfdict,'chips',clftot)
 	#dat,output=nab_and_format_bispec("dislocationbcc_disloc.lmp6538",get_cats=True)	
 	#make_output("dislocationfccfull.lmp1152",dat,output)
-	dat,output,trans,tdata,preds,cd=make_into_bispec(str(sys.argv[1]),se.lattice,se,clfdict,clftot,frame=0,bounds='p s s',multiframe=True, stendframe=[0,20000],outfilename=str(sys.argv[2]))
-	#dat,output,trans,tdata,preds,cd=make_into_bispec("dislocationbcc_disloc.lmp7547",se.lattice,se,clfdict,clftot,frame=0,bounds='s s p')
+	dat,output,trans,tdata,preds,cd=make_into_bispec(str(sys.argv[1]),se.lattice,se,clfdict,clftot,frame=0,bounds='p s s',multiframe=True, stendframe=[0,100000],outfilename=str(sys.argv[2]))
+	#dat,output,trans,tdata,preds,cd=make_into_bispec(str(sys.argv[1]),se.lattice,se,clfdict,clftot,frame=100000,bounds='p s s',outfilename=str(sys.argv[2]))

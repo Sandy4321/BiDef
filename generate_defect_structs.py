@@ -18,10 +18,7 @@
 # 9/19: Prototype now works
 
 # ToDo:
-# regenerate dislocation structures -- make them the correct size so we don't have to rescale them.
-# Add in gain boundaries -- they should be rather simple, we'll generate one large cell and use iterations of that for the GB
 # write the UX code which returns each atom with a descriptor.
-# try introducing more temerature variations in the samples, now that we've verified it works, this way we can have an
 #advantage over other methods!!
 # Use method on some live strain tests which I have -- should be able to identify surface atoms, ect.
 
@@ -342,8 +339,8 @@ def make_variance_bias_data(max2j, NNmax, numsamples):
 			temptest=[]
 			temptrain=[]
 			for nsamp in range(numsamples):		
-				#clftotNN=KNeighborsClassifier(n_neighbors=NN)
-				clftotNN=RandomForestClassifier(n_estimators=100, min_samples_leaf=NN)	
+				clftotNN=KNeighborsClassifier(n_neighbors=NN)
+				#clftotNN=RandomForestClassifier(n_estimators=100, min_samples_leaf=NN)	
 				clftotNN,Xs,Ys,sc,Xv,Yv,AS=train_ML(clftotNN,X,Y,trim=True,get_test_set=True,need_fit=True)
 				temptest.append(AS)
 				temptrain.append(sc)
@@ -353,7 +350,7 @@ def make_variance_bias_data(max2j, NNmax, numsamples):
 
 
 
-#TE,TRE=make_variance_bias_data(5,20,5)
+TE,TRE=make_variance_bias_data(5,20,5)
 
 #pickle.dump(TRE, open( "TRERF.p", "wb"))
 #pickle.dump(TE, open( "TERF.p", "wb"))
@@ -369,7 +366,7 @@ def plot_dat_variance(TE,TRE):
 		plt.plot(range(1,21,2),[np.array(TE[x][i]).mean() for i in range(len(TE[x]))],linewidth=3,c=color[x-1],label='$2j='+str(x)+'$'+' test')
 		plt.plot(range(1,21,2),[np.array(TRE[x][i]).mean() for i in range(len(TRE[x]))],'--',linewidth=3,c=color[x-1],label='$2j='+str(x)+'$'+' training')	
 	
-	plt.xlabel('Minimum Samples Per Leaf',fontsize=24)
+	plt.xlabel('Number of Nearest Neighbors',fontsize=24)
 	plt.ylabel('Prediction Accuracy', fontsize=24)
 	plt.axis([1,19,0.6,1.0], fontsize=24)	
 	plt.legend(bbox_to_anchor=(1.1,-0.11),prop={'size':18},ncol=3)	

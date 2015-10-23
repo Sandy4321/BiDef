@@ -51,7 +51,7 @@ for frame in range(0, ovito.dataset.anim.last_frame + 1):
 		else:
 			continue
 
-	for iden,st,pos,ee in zip(o['Particle Identifier'].array,o['Centrosymmetry'].array,o['Position'].array,errors):
+	for iden,st,pos,ee in zip(o['Particle Identifier'].array,o['Structure Type'].array,o['Position'].array,errors):
 		fout.write(str(iden)+' '+str(st)+' '+str(pos[0])+' '+str(pos[1])+' '+str(pos[2])+' '+str(ee)+' '+str(frame)+'\n')
 
 fout.close()
