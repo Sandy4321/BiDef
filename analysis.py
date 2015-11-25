@@ -1,3 +1,6 @@
+'''
+Small helper script to analyze bi-sepctrum components in a single system. For only one file.
+'''
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
