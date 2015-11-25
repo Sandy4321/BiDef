@@ -1,3 +1,7 @@
+'''
+Helper code to generate diffusion constants for a given atom from a lammps dump file
+'''
+
 import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
