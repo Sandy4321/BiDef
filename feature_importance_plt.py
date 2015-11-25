@@ -1,3 +1,6 @@
+'''
+simply plots feature importances and their std's derived from random forest ensemble construction.
+'''
 # first load them into a dictionary with x
 import matplotlib as mpl
 import numpy as np
