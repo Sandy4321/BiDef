@@ -1,3 +1,8 @@
+'''
+Plot error comparisions using both false negative and false positive classifications. Compares CNA, CSP and  BiDef
+as detailed in the  paper/thesis.
+
+'''
 import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
