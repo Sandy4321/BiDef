@@ -1,3 +1,8 @@
+'''
+Small proof of concept script which takes atomic bispectrum coefficients and looks as clustering with a K-means
+analysis.
+'''
+
 from lammps import lammps
 lmp=lammps()
 
