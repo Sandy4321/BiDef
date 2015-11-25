@@ -1,3 +1,8 @@
+'''
+mega-script used for generating defective features from templates. Deals  with straining the system and applying
+thermal pertubations to the atoms. Incorporates each of the defects listed in the paper/thesis. Will need template
+files provided in the same folder and a working lammps-python library for bi-spectrum coefficient generation.
+'''
 import random
 import numpy as np
 from lammps import lammps
