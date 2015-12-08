@@ -14,23 +14,23 @@ import sys
 def norm (s, m) : return lambda x : (x - m) / s
 
 
-def remove_surface_atoms (df):
-	ind=df[df['x'].max()-df['x']>5].index.values
-	ind=np.intersect1d(ind,df[df['x']-df['x'].min()>5].index.values)
-	ind=np.intersect1d(ind,df[df['y'].max()-df['y']>5].index.values)
-	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>5].index.values)
+def remove_surface_atoms (df,remove_dist):
+	ind=df[df['x'].max()-df['x']>remove_dist].index.values
+	ind=np.intersect1d(ind,df[df['x']-df['x'].min()>remove_dist].index.values)
+	ind=np.intersect1d(ind,df[df['y'].max()-df['y']>remove_dist].index.values)
+	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>remove_dist].index.values)
 	#ind=np.intersect1d(ind,df[df['z'].max()-df['z']>5].index.values)
 	#ind=np.intersect1d(ind,df[df['z']-df['z'].min()>5].index.values)
 	return ind
 
 
-def remove_surface_atoms_wZ (df):
-	ind=df[df['x'].max()-df['x']>5].index.values
-	ind=np.intersect1d(ind,df[df['x']-df['x'].min()>5].index.values)
-	ind=np.intersect1d(ind,df[df['y'].max()-df['y']>5].index.values)
-	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>5].index.values)
-	ind=np.intersect1d(ind,df[df['z'].max()-df['z']>3].index.values)
-	ind=np.intersect1d(ind,df[df['z']-df['z'].min()>3].index.values)
+def remove_surface_atoms_wZ (df, remove_dist):
+	ind=df[df['x'].max()-df['x']>remove_dist].index.values
+	ind=np.intersect1d(ind,df[df['x']-df['x'].min()>remove_dist].index.values)
+	ind=np.intersect1d(ind,df[df['y'].max()-df['y']>remove_dist].index.values)
+	ind=np.intersect1d(ind,df[df['y']-df['y'].min()>remove_dist].index.values)
+	ind=np.intersect1d(ind,df[df['z'].max()-df['z']>remove_dist].index.values)
+	ind=np.intersect1d(ind,df[df['z']-df['z'].min()>remove_dist].index.values)
 	return ind
 
 
